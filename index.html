@@ -209,6 +209,76 @@
     </div>
 
     <script>
+        // Objeto global para simular o servidor
+        window.mockServer = {
+            clients: [],
+            messages: [],
+            typingUsers: new Set(),
+            
+            broadcast: function(message, excludeClient = null) {
+                this.clients.forEach(client => {
+                    if (client !== excludeClient && client.onmessage) {
+                        client.onmessage({ data: JSON.stringify(message) });
+                    }
+                });
+            },
+            
+            addClient: function(ws) {
+                this.clients.push(ws);
+                
+                // Envia histórico de mensagens para o novo cliente
+                if (this.messages.length > 0) {
+                    ws.onmessage({ 
+                        data: JSON.stringify({
+                            type: 'history',
+                            messages: this.messages.slice(-50)
+                        }) 
+                    });
+                }
+                
+                this.updateUserList();
+            },
+            
+            removeClient: function(ws) {
+                this.clients = this.clients.filter(client => client !== ws);
+                this.updateUserList();
+            },
+            
+            updateUserList: function() {
+                const userList = Array.from(new Set(this.clients
+                    .filter(client => client.nickname)
+                    .map(client => client.nickname)));
+                
+                this.broadcast({
+                    type: 'user_list',
+                    users: userList
+                });
+            },
+            
+            addMessage: function(message) {
+                this.messages.push(message);
+                this.broadcast({
+                    type: 'message',
+                    sender: message.sender,
+                    content: message.content,
+                    timestamp: message.timestamp
+                });
+            },
+            
+            updateTyping: function(nickname, isTyping) {
+                if (isTyping) {
+                    this.typingUsers.add(nickname);
+                } else {
+                    this.typingUsers.delete(nickname);
+                }
+                
+                this.broadcast({
+                    type: 'typing',
+                    users: Array.from(this.typingUsers)
+                });
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             // Elementos do DOM
             const entryModal = document.getElementById('entry-modal');
@@ -239,76 +309,6 @@
             let reconnectAttempts = 0;
             const maxReconnectAttempts = 5;
             const reconnectDelay = 3000; // 3 segundos
-            
-            // Simulando um servidor WebSocket simples em memória
-            const mockServer = {
-                clients: [],
-                messages: [],
-                typingUsers: new Set(),
-                
-                broadcast: function(message) {
-                    this.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            client.onmessage({ data: JSON.stringify(message) });
-                        }
-                    });
-                },
-                
-                addClient: function(ws) {
-                    this.clients.push(ws);
-                    
-                    // Envia histórico de mensagens para o novo cliente
-                    if (this.messages.length > 0) {
-                        ws.onmessage({ 
-                            data: JSON.stringify({
-                                type: 'history',
-                                messages: this.messages.slice(-50)
-                            }) 
-                        });
-                    }
-                    
-                    this.updateUserList();
-                },
-                
-                removeClient: function(ws) {
-                    this.clients = this.clients.filter(client => client !== ws);
-                    this.updateUserList();
-                },
-                
-                updateUserList: function() {
-                    const userList = Array.from(new Set(this.clients
-                        .filter(client => client.nickname)
-                        .map(client => client.nickname)));
-                    
-                    this.broadcast({
-                        type: 'user_list',
-                        users: userList
-                    });
-                },
-                
-                addMessage: function(message) {
-                    this.messages.push(message);
-                    this.broadcast({
-                        type: 'message',
-                        sender: message.sender,
-                        content: message.content,
-                        timestamp: message.timestamp
-                    });
-                },
-                
-                updateTyping: function(nickname, isTyping) {
-                    if (isTyping) {
-                        this.typingUsers.add(nickname);
-                    } else {
-                        this.typingUsers.delete(nickname);
-                    }
-                    
-                    this.broadcast({
-                        type: 'typing',
-                        users: Array.from(this.typingUsers).filter(u => u !== nickname)
-                    });
-                }
-            };
             
             // Função para atualizar o status da conexão
             function updateConnectionStatus(status) {
@@ -347,23 +347,23 @@
                             
                             if (msg.type === 'register') {
                                 this.nickname = msg.nickname;
-                                mockServer.addClient(this);
+                                window.mockServer.addClient(this);
                             } 
                             else if (msg.type === 'message') {
-                                mockServer.addMessage(msg);
+                                window.mockServer.addMessage(msg);
                             }
                             else if (msg.type === 'typing') {
-                                mockServer.updateTyping(msg.sender, msg.isTyping);
+                                window.mockServer.updateTyping(msg.sender, msg.isTyping);
                             }
                             else if (msg.type === 'nickname_change') {
                                 this.nickname = msg.newNickname;
-                                mockServer.updateUserList();
+                                window.mockServer.updateUserList();
                             }
                         },
                         
                         close: function() {
                             this.readyState = WebSocket.CLOSED;
-                            mockServer.removeClient(this);
+                            window.mockServer.removeClient(this);
                             if (typeof this.onclose === 'function') {
                                 this.onclose({wasClean: true});
                             }
