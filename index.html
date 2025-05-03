@@ -94,6 +94,33 @@
         .user-badge .status-dot.offline {
             background-color: #ef4444;
         }
+        
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        
+        .connection-status.connected {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .connection-status.disconnected {
+            background-color: #ef4444;
+            color: white;
+        }
+        
+        .connection-status.reconnecting {
+            background-color: #f59e0b;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
@@ -176,116 +203,10 @@
         </div>
     </div>
 
-    <!-- Código do servidor Python (comentado para referência) -->
-    <!--
-    <script type="text/python">
-        # Servidor WebSocket em Python (requer websockets package)
-        import asyncio
-        import websockets
-        import json
-        from datetime import datetime
-
-        connected = set()
-        users = {}
-
-        async def chat_server(websocket, path):
-            # Adiciona novo usuário
-            connected.add(websocket)
-            user_data = None
-            
-            try:
-                async for message in websocket:
-                    data = json.loads(message)
-                    
-                    if data['type'] == 'register':
-                        # Registra novo usuário
-                        user_data = {
-                            'nickname': data['nickname'],
-                            'last_seen': datetime.now().isoformat(),
-                            'typing': False
-                        }
-                        users[websocket] = user_data
-                        
-                        # Notifica todos sobre o novo usuário
-                        broadcast_message = {
-                            'type': 'system',
-                            'content': f"{user_data['nickname']} entrou no chat.",
-                            'users': {k: v['nickname'] for k, v in users.items()}
-                        }
-                        await broadcast(broadcast_message)
-                    
-                    elif data['type'] == 'message':
-                        # Envia mensagem para todos
-                        broadcast_message = {
-                            'type': 'message',
-                            'sender': user_data['nickname'],
-                            'content': data['content'],
-                            'timestamp': datetime.now().isoformat()
-                        }
-                        await broadcast(broadcast_message)
-                    
-                    elif data['type'] == 'typing':
-                        # Atualiza status de digitação
-                        user_data['typing'] = data['isTyping']
-                        
-                        # Envia atualização para todos
-                        typing_users = [u['nickname'] for u in users.values() if u['typing'] and u['nickname'] != user_data['nickname']]
-                        if typing_users:
-                            broadcast_message = {
-                                'type': 'typing',
-                                'users': typing_users
-                            }
-                            await broadcast(broadcast_message)
-                        else:
-                            # Se ninguém estiver digitando, envia mensagem para limpar o indicador
-                            broadcast_message = {
-                                'type': 'typing',
-                                'users': []
-                            }
-                            await broadcast(broadcast_message)
-                    
-                    elif data['type'] == 'nickname_change':
-                        old_nickname = user_data['nickname']
-                        user_data['nickname'] = data['newNickname']
-                        
-                        # Notifica todos sobre a mudança
-                        broadcast_message = {
-                            'type': 'system',
-                            'content': f"{old_nickname} agora é conhecido como {user_data['nickname']}.",
-                            'users': {k: v['nickname'] for k, v in users.items()}
-                        }
-                        await broadcast(broadcast_message)
-                    
-                    # Atualiza último visto
-                    user_data['last_seen'] = datetime.now().isoformat()
-            
-            finally:
-                # Remove usuário quando desconecta
-                if websocket in users:
-                    nickname = users[websocket]['nickname']
-                    del users[websocket]
-                    connected.remove(websocket)
-                    
-                    # Notifica todos sobre a saída
-                    if connected:
-                        broadcast_message = {
-                            'type': 'system',
-                            'content': f"{nickname} saiu do chat.",
-                            'users': {k: v['nickname'] for k, v in users.items()}
-                        }
-                        await broadcast(broadcast_message)
-
-        async def broadcast(message):
-            if connected:
-                message_json = json.dumps(message)
-                await asyncio.wait([ws.send(message_json) for ws in connected])
-
-        start_server = websockets.serve(chat_server, "localhost", 8765)
-
-        asyncio.get_event_loop().run_until_complete(start_server)
-        asyncio.get_event_loop().run_forever()
-    </script>
-    -->
+    <!-- Status da conexão -->
+    <div id="connection-status" class="connection-status disconnected hidden">
+        <span id="status-text">Desconectado</span>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -306,6 +227,8 @@
             const usersToggleBtn = document.getElementById('users-toggle-btn');
             const typingIndicator = document.getElementById('typing-indicator');
             const typingUsers = document.getElementById('typing-users');
+            const connectionStatus = document.getElementById('connection-status');
+            const statusText = document.getElementById('status-text');
             
             // Variáveis de estado
             let nickname = '';
@@ -313,55 +236,135 @@
             let typingTimeout;
             let socket;
             let isTyping = false;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            const reconnectDelay = 3000; // 3 segundos
+            
+            // Função para atualizar o status da conexão
+            function updateConnectionStatus(status) {
+                connectionStatus.classList.remove('hidden', 'connected', 'disconnected', 'reconnecting');
+                
+                switch(status) {
+                    case 'connected':
+                        connectionStatus.classList.add('connected');
+                        statusText.textContent = 'Conectado';
+                        break;
+                    case 'disconnected':
+                        connectionStatus.classList.add('disconnected');
+                        statusText.textContent = 'Desconectado';
+                        break;
+                    case 'reconnecting':
+                        connectionStatus.classList.add('reconnecting');
+                        statusText.textContent = 'Reconectando...';
+                        break;
+                }
+                
+                connectionStatus.classList.remove('hidden');
+            }
             
             // Função para conectar ao WebSocket
             function connectWebSocket() {
                 // Altere para o endereço do seu servidor WebSocket
-                const wsUri = "ws://localhost:8765";
-                socket = new WebSocket(wsUri);
+                const wsUri = "wss://echo.websocket.org"; // Servidor de teste público
+                // Para produção, use seu próprio servidor WebSocket:
+                // const wsUri = "wss://seu-servidor.com/chat";
                 
-                socket.onopen = function(e) {
-                    console.log("Conexão WebSocket estabelecida");
+                updateConnectionStatus('reconnecting');
+                
+                try {
+                    socket = new WebSocket(wsUri);
                     
-                    // Registra o usuário no servidor
-                    socket.send(JSON.stringify({
-                        type: 'register',
-                        nickname: nickname
-                    }));
-                };
-                
-                socket.onmessage = function(event) {
-                    const data = JSON.parse(event.data);
+                    socket.onopen = function(e) {
+                        console.log("Conexão WebSocket estabelecida");
+                        updateConnectionStatus('connected');
+                        reconnectAttempts = 0;
+                        
+                        // Registra o usuário no servidor
+                        if (nickname) {
+                            socket.send(JSON.stringify({
+                                type: 'register',
+                                nickname: nickname
+                            }));
+                        }
+                    };
                     
-                    switch(data.type) {
-                        case 'message':
-                            displayMessage(data.sender, data.content, false, data.timestamp);
-                            break;
+                    socket.onmessage = function(event) {
+                        try {
+                            const data = JSON.parse(event.data);
                             
-                        case 'system':
-                            displayMessage('Sistema', data.content, true);
-                            updateUsersList(data.users || []);
-                            break;
+                            switch(data.type) {
+                                case 'message':
+                                    displayMessage(data.sender, data.content, false, data.timestamp);
+                                    break;
+                                    
+                                case 'system':
+                                    displayMessage('Sistema', data.content, true);
+                                    if (data.users) {
+                                        updateUsersList(data.users);
+                                    }
+                                    break;
+                                    
+                                case 'typing':
+                                    updateTypingIndicator(data.users);
+                                    break;
+                                    
+                                case 'ping':
+                                    // Responde ao ping do servidor
+                                    socket.send(JSON.stringify({ type: 'pong' }));
+                                    break;
+                            }
+                        } catch (error) {
+                            console.error("Erro ao processar mensagem:", error);
+                        }
+                    };
+                    
+                    socket.onclose = function(event) {
+                        if (event.wasClean) {
+                            console.log(`Conexão fechada limpa, código=${event.code} motivo=${event.reason}`);
+                            updateConnectionStatus('disconnected');
+                        } else {
+                            console.log('Conexão perdida');
+                            updateConnectionStatus('disconnected');
                             
-                        case 'typing':
-                            updateTypingIndicator(data.users);
-                            break;
+                            // Tenta reconectar
+                            if (reconnectAttempts < maxReconnectAttempts) {
+                                reconnectAttempts++;
+                                console.log(`Tentando reconectar (tentativa ${reconnectAttempts} de ${maxReconnectAttempts})...`);
+                                setTimeout(connectWebSocket, reconnectDelay);
+                            } else {
+                                console.log('Número máximo de tentativas de reconexão alcançado');
+                                displayMessage('Sistema', 'Não foi possível reconectar ao servidor. Por favor, recarregue a página.', true);
+                            }
+                        }
+                    };
+                    
+                    socket.onerror = function(error) {
+                        console.error("Erro no WebSocket:", error);
+                        updateConnectionStatus('disconnected');
+                    };
+                } catch (error) {
+                    console.error("Erro ao conectar ao WebSocket:", error);
+                    updateConnectionStatus('disconnected');
+                    
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        reconnectAttempts++;
+                        setTimeout(connectWebSocket, reconnectDelay);
                     }
-                };
-                
-                socket.onclose = function(event) {
-                    if (event.wasClean) {
-                        displayMessage('Sistema', 'Você foi desconectado do chat.', true);
-                    } else {
-                        displayMessage('Sistema', 'Conexão perdida. Tentando reconectar...', true);
-                        // Tenta reconectar após 5 segundos
-                        setTimeout(connectWebSocket, 5000);
+                }
+            }
+            
+            // Função para verificar periodicamente a conexão
+            function startConnectionMonitor() {
+                setInterval(() => {
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        // Envia um ping para manter a conexão ativa
+                        try {
+                            socket.send(JSON.stringify({ type: 'ping' }));
+                        } catch (error) {
+                            console.error("Erro ao enviar ping:", error);
+                        }
                     }
-                };
-                
-                socket.onerror = function(error) {
-                    console.error("Erro no WebSocket:", error);
-                };
+                }, 30000); // A cada 30 segundos
             }
             
             // Função para mostrar mensagem no chat
@@ -473,10 +476,44 @@
             // Função para notificar que o usuário está digitando
             function notifyTyping(isTyping) {
                 if (socket && socket.readyState === WebSocket.OPEN) {
+                    try {
+                        socket.send(JSON.stringify({
+                            type: 'typing',
+                            isTyping: isTyping
+                        }));
+                    } catch (error) {
+                        console.error("Erro ao enviar status de digitação:", error);
+                    }
+                }
+            }
+            
+            // Função para enviar mensagem com verificação de conexão
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                if (message === '') return;
+                
+                if (!socket || socket.readyState !== WebSocket.OPEN) {
+                    displayMessage('Sistema', 'Não foi possível enviar a mensagem. Tentando reconectar...', true);
+                    connectWebSocket();
+                    return;
+                }
+                
+                try {
                     socket.send(JSON.stringify({
-                        type: 'typing',
-                        isTyping: isTyping
+                        type: 'message',
+                        content: message
                     }));
+                    messageInput.value = '';
+                    
+                    // Notifica que parou de digitar
+                    if (isTyping) {
+                        isTyping = false;
+                        notifyTyping(false);
+                    }
+                } catch (error) {
+                    console.error("Erro ao enviar mensagem:", error);
+                    displayMessage('Sistema', 'Erro ao enviar mensagem. Tentando reconectar...', true);
+                    connectWebSocket();
                 }
             }
             
@@ -499,6 +536,9 @@
                 // Conecta ao WebSocket
                 connectWebSocket();
                 
+                // Inicia o monitor de conexão
+                startConnectionMonitor();
+                
                 // Foca no campo de mensagem
                 messageInput.focus();
             }
@@ -516,10 +556,16 @@
                     
                     // Envia mensagem de mudança para o servidor
                     if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(JSON.stringify({
-                            type: 'nickname_change',
-                            newNickname: nickname
-                        }));
+                        try {
+                            socket.send(JSON.stringify({
+                                type: 'nickname_change',
+                                newNickname: nickname
+                            }));
+                        } catch (error) {
+                            console.error("Erro ao enviar mudança de nickname:", error);
+                            displayMessage('Sistema', 'Erro ao atualizar nickname. Tentando reconectar...', true);
+                            connectWebSocket();
+                        }
                     }
                 }
             }
@@ -533,39 +579,11 @@
                 }
             });
             
-            sendBtn.addEventListener('click', function() {
-                const message = messageInput.value.trim();
-                if (message !== '' && socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({
-                        type: 'message',
-                        content: message
-                    }));
-                    messageInput.value = '';
-                    
-                    // Notifica que parou de digitar
-                    if (isTyping) {
-                        isTyping = false;
-                        notifyTyping(false);
-                    }
-                }
-            });
+            sendBtn.addEventListener('click', sendMessage);
             
             messageInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    const message = messageInput.value.trim();
-                    if (message !== '' && socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(JSON.stringify({
-                            type: 'message',
-                            content: message
-                        }));
-                        messageInput.value = '';
-                        
-                        // Notifica que parou de digitar
-                        if (isTyping) {
-                            isTyping = false;
-                            notifyTyping(false);
-                        }
-                    }
+                    sendMessage();
                 }
             });
             
@@ -605,6 +623,9 @@
                     socket.close();
                 }
             });
+            
+            // Mostra status da conexão
+            updateConnectionStatus('disconnected');
         });
     </script>
 </body>
