@@ -141,7 +141,6 @@
             to { transform: translateX(0); opacity: 1; }
         }
         
-        /* Novo estilo para mensagens de entrada/saída */
         .join-message {
             background-color: #f0fdf4;
             border-left: 4px solid #10b981;
@@ -158,7 +157,6 @@
             border-radius: 0 4px 4px 0;
         }
         
-        /* Estilo para mensagens do sistema */
         .system-message {
             background-color: #eff6ff;
             border-left: 4px solid #3b82f6;
@@ -262,94 +260,6 @@
     </div>
 
     <script>
-        // Objeto global para simular o servidor
-        window.mockServer = {
-            clients: [],
-            messages: [],
-            typingUsers: new Set(),
-            
-            broadcast: function(message, excludeClient = null) {
-                this.clients.forEach(client => {
-                    if (client !== excludeClient && client.onmessage) {
-                        client.onmessage({ data: JSON.stringify(message) });
-                    }
-                });
-            },
-            
-            addClient: function(ws) {
-                this.clients.push(ws);
-                
-                // Envia histórico de mensagens para o novo cliente
-                if (this.messages.length > 0) {
-                    ws.onmessage({ 
-                        data: JSON.stringify({
-                            type: 'history',
-                            messages: this.messages.slice(-50)
-                        })
-                    });
-                }
-                
-                // Notifica todos sobre o novo usuário
-                this.broadcast({
-                    type: 'user_join',
-                    nickname: ws.nickname,
-                    timestamp: new Date().toISOString()
-                });
-                
-                this.updateUserList();
-            },
-            
-            removeClient: function(ws) {
-                this.clients = this.clients.filter(client => client !== ws);
-                
-                // Notifica todos sobre a saída do usuário
-                if (ws.nickname) {
-                    this.broadcast({
-                        type: 'user_leave',
-                        nickname: ws.nickname,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-                
-                this.updateUserList();
-            },
-            
-            updateUserList: function() {
-                const userList = this.clients
-                    .filter(client => client.nickname)
-                    .map(client => client.nickname);
-                
-                this.broadcast({
-                    type: 'user_list',
-                    users: userList
-                });
-            },
-            
-            addMessage: function(message) {
-                this.messages.push(message);
-                this.broadcast({
-                    type: 'message',
-                    sender: message.sender,
-                    content: message.content,
-                    timestamp: message.timestamp,
-                    isCurrentUser: false // Adicionamos esta flag para identificar mensagens de outros usuários
-                });
-            },
-            
-            updateTyping: function(nickname, isTyping) {
-                if (isTyping) {
-                    this.typingUsers.add(nickname);
-                } else {
-                    this.typingUsers.delete(nickname);
-                }
-                
-                this.broadcast({
-                    type: 'typing',
-                    users: Array.from(this.typingUsers)
-                });
-            }
-        };
-
         document.addEventListener('DOMContentLoaded', function() {
             // Elementos do DOM
             const entryModal = document.getElementById('entry-modal');
@@ -382,6 +292,9 @@
             let reconnectAttempts = 0;
             const maxReconnectAttempts = 5;
             const reconnectDelay = 3000; // 3 segundos
+            
+            // URL do servidor WebSocket (usando um servidor público para testes)
+            const WS_SERVER_URL = 'wss://echo.websocket.org';
             
             // Função para mostrar notificação
             function showNotification(message, duration = 3000) {
@@ -420,65 +333,29 @@
                 updateConnectionStatus('reconnecting');
                 
                 try {
-                    // Criando um WebSocket "mockado" para simular o comportamento do servidor
-                    const ws = {
-                        readyState: WebSocket.OPEN,
-                        nickname: null,
+                    socket = new WebSocket(WS_SERVER_URL);
+                    
+                    socket.onopen = function() {
+                        updateConnectionStatus('connected');
+                        reconnectAttempts = 0;
                         
-                        send: function(data) {
-                            const msg = JSON.parse(data);
-                            
-                            if (msg.type === 'register') {
-                                this.nickname = msg.nickname;
-                                window.mockServer.addClient(this);
-                                showNotification(`Bem-vindo ao chat, ${this.nickname}!`);
-                            } 
-                            else if (msg.type === 'message') {
-                                // Quando o usuário envia uma mensagem, adicionamos ao servidor
-                                // e exibimos localmente apenas uma vez
-                                window.mockServer.addMessage({
-                                    sender: this.nickname,
-                                    content: msg.content,
-                                    timestamp: new Date().toISOString()
-                                });
-                                
-                                // Exibe a mensagem localmente como "enviada"
-                                displayMessage(this.nickname, msg.content, true, new Date().toISOString());
-                            }
-                            else if (msg.type === 'typing') {
-                                window.mockServer.updateTyping(msg.sender, msg.isTyping);
-                            }
-                            else if (msg.type === 'nickname_change') {
-                                const oldNickname = this.nickname;
-                                this.nickname = msg.newNickname;
-                                window.mockServer.broadcast({
-                                    type: 'system_message',
-                                    content: `${oldNickname} mudou para ${this.nickname}`,
-                                    timestamp: new Date().toISOString()
-                                });
-                                window.mockServer.updateUserList();
-                                showNotification(`Seu nickname foi alterado para ${this.nickname}`);
-                            }
-                        },
-                        
-                        close: function() {
-                            this.readyState = WebSocket.CLOSED;
-                            window.mockServer.removeClient(this);
-                            if (typeof this.onclose === 'function') {
-                                this.onclose({wasClean: true});
-                            }
+                        // Registra o usuário no servidor
+                        if (nickname) {
+                            socket.send(JSON.stringify({
+                                type: 'register',
+                                nickname: nickname,
+                                timestamp: new Date().toISOString()
+                            }));
                         }
                     };
                     
-                    // Configura os callbacks
-                    ws.onmessage = function(event) {
+                    socket.onmessage = function(event) {
                         try {
                             const data = JSON.parse(event.data);
                             
                             switch(data.type) {
                                 case 'message':
-                                    // Só exibe a mensagem se não for do usuário atual
-                                    // (pois já foi exibida quando enviada)
+                                    // Exibe a mensagem apenas se não for do usuário atual
                                     if (data.sender !== nickname) {
                                         displayMessage(data.sender, data.content, false, data.timestamp);
                                     }
@@ -495,7 +372,6 @@
                                         chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
                                     } else {
                                         data.messages.forEach(msg => {
-                                            // Verifica se a mensagem é do usuário atual
                                             const isCurrentUser = msg.sender === nickname;
                                             displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp);
                                         });
@@ -523,7 +399,7 @@
                         }
                     };
                     
-                    ws.onclose = function(event) {
+                    socket.onclose = function(event) {
                         if (event.wasClean) {
                             console.log(`Conexão fechada limpa, código=${event.code} motivo=${event.reason}`);
                             updateConnectionStatus('disconnected');
@@ -542,18 +418,10 @@
                         }
                     };
                     
-                    socket = ws;
-                    updateConnectionStatus('connected');
-                    reconnectAttempts = 0;
-                    
-                    // Registra o usuário no servidor
-                    if (nickname) {
-                        socket.send(JSON.stringify({
-                            type: 'register',
-                            nickname: nickname,
-                            timestamp: new Date().toISOString()
-                        }));
-                    }
+                    socket.onerror = function(error) {
+                        console.error("Erro no WebSocket:", error);
+                        updateConnectionStatus('disconnected');
+                    };
                     
                 } catch (error) {
                     console.error("Erro ao conectar ao WebSocket:", error);
@@ -816,6 +684,10 @@
                     
                     // Envia a mensagem para o servidor
                     socket.send(JSON.stringify(messageData));
+                    
+                    // Exibe a mensagem localmente como "enviada"
+                    displayMessage(nickname, message, true, new Date().toISOString());
+                    
                     messageInput.value = '';
                     
                     // Notifica que parou de digitar
@@ -872,6 +744,8 @@
                                 oldNickname: oldNickname,
                                 newNickname: nickname
                             }));
+                            
+                            showNotification(`Seu nickname foi alterado para ${nickname}`);
                         } catch (error) {
                             console.error("Erro ao enviar mudança de nickname:", error);
                             displaySystemMessage('Erro ao atualizar nickname. Tentando reconectar...');
