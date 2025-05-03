@@ -331,7 +331,8 @@
                     type: 'message',
                     sender: message.sender,
                     content: message.content,
-                    timestamp: message.timestamp
+                    timestamp: message.timestamp,
+                    isCurrentUser: false // Adicionamos esta flag para identificar mensagens de outros usuários
                 });
             },
             
@@ -433,7 +434,16 @@
                                 showNotification(`Bem-vindo ao chat, ${this.nickname}!`);
                             } 
                             else if (msg.type === 'message') {
-                                window.mockServer.addMessage(msg);
+                                // Quando o usuário envia uma mensagem, adicionamos ao servidor
+                                // e exibimos localmente apenas uma vez
+                                window.mockServer.addMessage({
+                                    sender: this.nickname,
+                                    content: msg.content,
+                                    timestamp: new Date().toISOString()
+                                });
+                                
+                                // Exibe a mensagem localmente como "enviada"
+                                displayMessage(this.nickname, msg.content, true, new Date().toISOString());
                             }
                             else if (msg.type === 'typing') {
                                 window.mockServer.updateTyping(msg.sender, msg.isTyping);
@@ -467,7 +477,11 @@
                             
                             switch(data.type) {
                                 case 'message':
-                                    displayMessage(data.sender, data.content, false, data.timestamp);
+                                    // Só exibe a mensagem se não for do usuário atual
+                                    // (pois já foi exibida quando enviada)
+                                    if (data.sender !== nickname) {
+                                        displayMessage(data.sender, data.content, false, data.timestamp);
+                                    }
                                     break;
                                     
                                 case 'user_list':
@@ -481,7 +495,9 @@
                                         chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
                                     } else {
                                         data.messages.forEach(msg => {
-                                            displayMessage(msg.sender, msg.content, false, msg.timestamp);
+                                            // Verifica se a mensagem é do usuário atual
+                                            const isCurrentUser = msg.sender === nickname;
+                                            displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp);
                                         });
                                     }
                                     break;
@@ -798,11 +814,9 @@
                         timestamp: new Date().toISOString()
                     };
                     
+                    // Envia a mensagem para o servidor
                     socket.send(JSON.stringify(messageData));
                     messageInput.value = '';
-                    
-                    // Exibe a mensagem localmente imediatamente
-                    displayMessage(nickname, message, true, messageData.timestamp);
                     
                     // Notifica que parou de digitar
                     if (isTyping) {
