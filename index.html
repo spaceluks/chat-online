@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat em Tempo Real</title>
+    <title>Chat Colaborativo | Plataforma Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
         
         .message-animation {
@@ -73,6 +78,12 @@
             padding: 2px 8px;
             margin: 2px;
             font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .user-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .user-badge.you {
@@ -89,6 +100,7 @@
         
         .user-badge .status-dot.online {
             background-color: #10b981;
+            animation: pulse 2s infinite;
         }
         
         .user-badge .status-dot.offline {
@@ -105,6 +117,7 @@
             font-weight: 500;
             z-index: 1000;
             transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .connection-status.connected {
@@ -164,9 +177,182 @@
             margin: 8px 0;
             border-radius: 0 4px 4px 0;
         }
+        
+        .message-reactions {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        
+        .reaction-btn {
+            background: rgba(0,0,0,0.05);
+            border-radius: 12px;
+            padding: 2px 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .reaction-btn:hover {
+            background: rgba(0,0,0,0.1);
+            transform: scale(1.1);
+        }
+        
+        .reaction-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .message-menu {
+            position: absolute;
+            right: 0;
+            top: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .message-container:hover .message-menu {
+            opacity: 1;
+        }
+        
+        .message-options {
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 4px 0;
+            min-width: 120px;
+        }
+        
+        .message-option {
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .message-option:hover {
+            background: #f3f4f6;
+        }
+        
+        .message-option.delete {
+            color: #ef4444;
+        }
+        
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        
+        .entry-modal {
+            background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+        }
+        
+        .message-input-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            transition: all 0.2s ease;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+        }
+        
+        .chat-container {
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .empty-chat {
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23d1d5db" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>') no-repeat center;
+            background-size: 80px;
+        }
+        
+        .empty-chat p {
+            background: rgba(255,255,255,0.8);
+            padding: 8px 16px;
+            border-radius: 9999px;
+        }
+        
+        .reaction-picker {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 8px;
+            display: none;
+            z-index: 100;
+        }
+        
+        .reaction-picker.show {
+            display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .reaction-option {
+            font-size: 20px;
+            padding: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .reaction-option:hover {
+            transform: scale(1.2);
+        }
+        
+        .message-reply {
+            border-left: 3px solid #4f46e5;
+            padding-left: 8px;
+            margin-bottom: 4px;
+            font-size: 0.85em;
+            color: #6b7280;
+        }
+        
+        .reply-info {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+        
+        .reply-btn {
+            color: #4f46e5;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        
+        .reply-cancel {
+            color: #ef4444;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-left: 8px;
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
     <!-- Notificação -->
     <div id="notification" class="notification hidden">
         <div class="flex items-center">
@@ -176,44 +362,68 @@
     </div>
 
     <!-- Modal de entrada -->
-    <div id="entry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-xl w-96">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Bem-vindo ao Chat</h2>
-            <p class="text-gray-600 mb-4">Digite seu nickname para começar a conversar:</p>
-            <input type="text" id="nickname-input" placeholder="Seu nickname"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
-            <div class="flex justify-end">
-                <button id="enter-chat-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
+    <div id="entry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="entry-modal bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="mx-auto w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-comments text-white text-3xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Bem-vindo ao Chat</h2>
+                <p class="text-gray-600">Conecte-se e colabore em tempo real com sua equipe</p>
+            </div>
+            
+            <div class="mb-6">
+                <label for="nickname-input" class="block text-sm font-medium text-gray-700 mb-2">Seu nickname</label>
+                <input type="text" id="nickname-input" placeholder="Digite como quer ser chamado"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+            </div>
+            
+            <div class="flex flex-col space-y-3">
+                <button id="enter-chat-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
                     Entrar no Chat
                 </button>
+                
+                <div class="text-center text-sm text-gray-500 mt-4">
+                    Ao entrar, você concorda com nossos <a href="#" class="text-indigo-600 hover:underline">Termos de Serviço</a>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Container principal do chat -->
-    <div class="container mx-auto max-w-4xl flex-1 flex flex-col p-4 hidden" id="chat-container">
+    <div class="chat-container w-full max-w-4xl bg-white rounded-xl overflow-hidden hidden" id="chat-container">
         <!-- Cabeçalho -->
-        <header class="bg-white shadow rounded-t-lg p-4 flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold text-gray-800">Chat em Tempo Real</h1>
-                <p class="text-sm text-gray-500">Conectado como: <span id="current-nickname" class="font-semibold text-blue-600"></span></p>
+        <header class="chat-header p-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">Chat Colaborativo</h1>
+                    <p class="text-sm opacity-80">Conectado como: <span id="current-nickname" class="font-semibold"></span></p>
+                </div>
             </div>
+            
             <div class="flex space-x-2">
-                <button id="users-toggle-btn" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition duration-200" title="Mostrar usuários">
+                <button id="users-toggle-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Mostrar usuários">
                     <i class="fas fa-users"></i>
                 </button>
-                <button id="clear-chat-btn" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition duration-200" title="Limpar chat">
+                <button id="clear-chat-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Limpar chat">
                     <i class="fas fa-trash-alt"></i>
                 </button>
-                <button id="change-nick-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full transition duration-200" title="Mudar nickname">
+                <button id="change-nick-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Mudar nickname">
                     <i class="fas fa-user-edit"></i>
                 </button>
             </div>
         </header>
 
         <!-- Painel de usuários (oculto por padrão) -->
-        <div id="users-panel" class="hidden bg-white p-4 border-t border-b border-gray-200">
-            <h3 class="font-semibold text-gray-700 mb-2">Usuários Online</h3>
+        <div id="users-panel" class="hidden bg-gray-50 p-4 border-t border-b border-gray-200">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-gray-700">Usuários Online</h3>
+                <span id="user-count" class="text-sm text-gray-500">0 usuários</span>
+            </div>
             <div id="users-list" class="flex flex-wrap gap-2">
                 <!-- Usuários serão adicionados aqui dinamicamente -->
             </div>
@@ -221,8 +431,21 @@
 
         <!-- Área de mensagens -->
         <div id="chat-messages" class="flex-1 bg-white p-4 overflow-y-auto max-h-[60vh]">
-            <div class="text-center text-gray-500 py-4">
+            <div class="empty-chat text-center text-gray-500 py-4 h-full flex flex-col items-center justify-center">
                 <p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p>
+            </div>
+        </div>
+
+        <!-- Área de resposta -->
+        <div id="reply-preview" class="hidden bg-gray-50 border-t border-gray-200 px-4 py-2">
+            <div class="flex justify-between items-center">
+                <div>
+                    <span class="reply-info">Respondendo a <span id="reply-to-user"></span></span>
+                    <div id="reply-preview-content" class="message-reply truncate max-w-xs"></div>
+                </div>
+                <button id="cancel-reply-btn" class="reply-cancel">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </div>
 
@@ -239,27 +462,180 @@
         </div>
 
         <!-- Área de envio de mensagens -->
-        <div class="bg-white shadow rounded-b-lg p-4">
+        <div class="message-input-container p-4">
             <div class="flex space-x-2">
                 <input type="text" id="message-input" placeholder="Digite sua mensagem..."
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <button id="send-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                <button id="send-btn" class="send-btn px-6 py-3 rounded-lg">
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
             <div class="mt-2 flex justify-between text-xs text-gray-500">
                 <p>Pressione Enter para enviar</p>
-                <p id="user-count">0 usuários online</p>
+                <div class="flex space-x-2">
+                    <button id="emoji-btn" class="text-gray-500 hover:text-indigo-600 transition duration-200">
+                        <i class="far fa-smile"></i>
+                    </button>
+                    <button id="gif-btn" class="text-gray-500 hover:text-indigo-600 transition duration-200">
+                        <i class="fas fa-photo-film"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Status da conexão -->
     <div id="connection-status" class="connection-status disconnected hidden">
+        <i class="fas fa-circle mr-2"></i>
         <span id="status-text">Desconectado</span>
     </div>
 
+    <!-- Emoji Picker (simplificado) -->
+    <div id="emoji-picker" class="hidden bg-white border border-gray-200 rounded-lg p-2 absolute bottom-16 right-4 w-64 h-40 overflow-y-auto">
+        <div class="grid grid-cols-8 gap-1">
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😀</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😂</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😍</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🤔</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😎</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🙌</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">👍</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">👏</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">❤️</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🔥</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🎉</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">💯</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🤣</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😊</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😢</span>
+            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😴</span>
+        </div>
+    </div>
+
     <script>
+        // Objeto global para simular o servidor
+        window.mockServer = {
+            clients: [],
+            messages: [],
+            typingUsers: new Set(),
+            messageReactions: {},
+            
+            broadcast: function(message, excludeClient = null) {
+                this.clients.forEach(client => {
+                    if (client !== excludeClient && client.onmessage) {
+                        client.onmessage({ data: JSON.stringify(message) });
+                    }
+                });
+            },
+            
+            addClient: function(ws) {
+                this.clients.push(ws);
+                
+                // Envia histórico de mensagens para o novo cliente
+                if (this.messages.length > 0) {
+                    ws.onmessage({ 
+                        data: JSON.stringify({
+                            type: 'history',
+                            messages: this.messages.slice(-50),
+                            reactions: this.messageReactions
+                        })
+                    });
+                }
+                
+                // Notifica todos sobre o novo usuário
+                this.broadcast({
+                    type: 'user_join',
+                    nickname: ws.nickname,
+                    timestamp: new Date().toISOString()
+                });
+                
+                this.updateUserList();
+            },
+            
+            removeClient: function(ws) {
+                this.clients = this.clients.filter(client => client !== ws);
+                
+                // Notifica todos sobre a saída do usuário
+                if (ws.nickname) {
+                    this.broadcast({
+                        type: 'user_leave',
+                        nickname: ws.nickname,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                
+                this.updateUserList();
+            },
+            
+            updateUserList: function() {
+                const userList = this.clients
+                    .filter(client => client.nickname)
+                    .map(client => client.nickname);
+                
+                this.broadcast({
+                    type: 'user_list',
+                    users: userList
+                });
+            },
+            
+            addMessage: function(message) {
+                const messageId = Date.now().toString();
+                message.id = messageId;
+                this.messages.push(message);
+                
+                this.broadcast({
+                    type: 'message',
+                    id: messageId,
+                    sender: message.sender,
+                    content: message.content,
+                    timestamp: message.timestamp,
+                    replyTo: message.replyTo || null
+                });
+                
+                return messageId;
+            },
+            
+            updateTyping: function(nickname, isTyping) {
+                if (isTyping) {
+                    this.typingUsers.add(nickname);
+                } else {
+                    this.typingUsers.delete(nickname);
+                }
+                
+                this.broadcast({
+                    type: 'typing',
+                    users: Array.from(this.typingUsers)
+                });
+            },
+            
+            addReaction: function(messageId, reaction, nickname) {
+                if (!this.messageReactions[messageId]) {
+                    this.messageReactions[messageId] = {};
+                }
+                
+                if (!this.messageReactions[messageId][reaction]) {
+                    this.messageReactions[messageId][reaction] = new Set();
+                }
+                
+                // Remove any existing reaction from this user for this message
+                for (const r in this.messageReactions[messageId]) {
+                    this.messageReactions[messageId][r].delete(nickname);
+                    if (this.messageReactions[messageId][r].size === 0) {
+                        delete this.messageReactions[messageId][r];
+                    }
+                }
+                
+                // Add new reaction
+                this.messageReactions[messageId][reaction].add(nickname);
+                
+                this.broadcast({
+                    type: 'reaction',
+                    messageId: messageId,
+                    reactions: this.messageReactions[messageId]
+                });
+            }
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             // Elementos do DOM
             const entryModal = document.getElementById('entry-modal');
@@ -282,6 +658,12 @@
             const statusText = document.getElementById('status-text');
             const notification = document.getElementById('notification');
             const notificationText = document.getElementById('notification-text');
+            const emojiBtn = document.getElementById('emoji-btn');
+            const emojiPicker = document.getElementById('emoji-picker');
+            const replyPreview = document.getElementById('reply-preview');
+            const replyToUser = document.getElementById('reply-to-user');
+            const replyPreviewContent = document.getElementById('reply-preview-content');
+            const cancelReplyBtn = document.getElementById('cancel-reply-btn');
             
             // Variáveis de estado
             let nickname = '';
@@ -292,9 +674,8 @@
             let reconnectAttempts = 0;
             const maxReconnectAttempts = 5;
             const reconnectDelay = 3000; // 3 segundos
-            
-            // URL do servidor WebSocket (usando um servidor público para testes)
-            const WS_SERVER_URL = 'wss://echo.websocket.org';
+            let currentReply = null;
+            let messageMenuOpen = null;
             
             // Função para mostrar notificação
             function showNotification(message, duration = 3000) {
@@ -333,31 +714,73 @@
                 updateConnectionStatus('reconnecting');
                 
                 try {
-                    socket = new WebSocket(WS_SERVER_URL);
-                    
-                    socket.onopen = function() {
-                        updateConnectionStatus('connected');
-                        reconnectAttempts = 0;
+                    // Criando um WebSocket "mockado" para simular o comportamento do servidor
+                    const ws = {
+                        readyState: WebSocket.OPEN,
+                        nickname: null,
                         
-                        // Registra o usuário no servidor
-                        if (nickname) {
-                            socket.send(JSON.stringify({
-                                type: 'register',
-                                nickname: nickname,
-                                timestamp: new Date().toISOString()
-                            }));
+                        send: function(data) {
+                            const msg = JSON.parse(data);
+                            
+                            if (msg.type === 'register') {
+                                this.nickname = msg.nickname;
+                                window.mockServer.addClient(this);
+                                showNotification(`Bem-vindo ao chat, ${this.nickname}!`);
+                            } 
+                            else if (msg.type === 'message') {
+                                // Quando o usuário envia uma mensagem, adicionamos ao servidor
+                                // e exibimos localmente apenas uma vez
+                                const messageData = {
+                                    sender: this.nickname,
+                                    content: msg.content,
+                                    timestamp: new Date().toISOString(),
+                                    replyTo: msg.replyTo || null
+                                };
+                                
+                                const messageId = window.mockServer.addMessage(messageData);
+                                
+                                // Exibe a mensagem localmente como "enviada"
+                                displayMessage(this.nickname, msg.content, true, new Date().toISOString(), messageId, msg.replyTo);
+                            }
+                            else if (msg.type === 'typing') {
+                                window.mockServer.updateTyping(msg.sender, msg.isTyping);
+                            }
+                            else if (msg.type === 'nickname_change') {
+                                const oldNickname = this.nickname;
+                                this.nickname = msg.newNickname;
+                                window.mockServer.broadcast({
+                                    type: 'system_message',
+                                    content: `${oldNickname} mudou para ${this.nickname}`,
+                                    timestamp: new Date().toISOString()
+                                });
+                                window.mockServer.updateUserList();
+                                showNotification(`Seu nickname foi alterado para ${this.nickname}`);
+                            }
+                            else if (msg.type === 'reaction') {
+                                window.mockServer.addReaction(msg.messageId, msg.reaction, this.nickname);
+                            }
+                        },
+                        
+                        close: function() {
+                            this.readyState = WebSocket.CLOSED;
+                            window.mockServer.removeClient(this);
+                            if (typeof this.onclose === 'function') {
+                                this.onclose({wasClean: true});
+                            }
                         }
                     };
                     
-                    socket.onmessage = function(event) {
+                    // Configura os callbacks
+                    ws.onmessage = function(event) {
                         try {
                             const data = JSON.parse(event.data);
                             
                             switch(data.type) {
                                 case 'message':
-                                    // Exibe a mensagem apenas se não for do usuário atual
+                                    // Só exibe a mensagem se não for do usuário atual
+                                    // (pois já foi exibida quando enviada)
                                     if (data.sender !== nickname) {
-                                        displayMessage(data.sender, data.content, false, data.timestamp);
+                                        displayMessage(data.sender, data.content, false, data.timestamp, data.id, data.replyTo);
                                     }
                                     break;
                                     
@@ -369,12 +792,23 @@
                                     chatMessages.innerHTML = '';
                                     
                                     if (data.messages.length === 0) {
-                                        chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+                                        chatMessages.innerHTML = '<div class="empty-chat text-center text-gray-500 py-4 h-full flex flex-col items-center justify-center"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
                                     } else {
                                         data.messages.forEach(msg => {
+                                            // Verifica se a mensagem é do usuário atual
                                             const isCurrentUser = msg.sender === nickname;
-                                            displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp);
+                                            displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp, msg.id, msg.replyTo);
                                         });
+                                    }
+                                    
+                                    // Aplica reações às mensagens
+                                    if (data.reactions) {
+                                        for (const messageId in data.reactions) {
+                                            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                                            if (messageElement) {
+                                                updateMessageReactions(messageElement, data.reactions[messageId]);
+                                            }
+                                        }
                                     }
                                     break;
                                     
@@ -393,13 +827,20 @@
                                 case 'user_leave':
                                     displayLeaveMessage(data.nickname, data.timestamp);
                                     break;
+                                    
+                                case 'reaction':
+                                    const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
+                                    if (messageElement) {
+                                        updateMessageReactions(messageElement, data.reactions);
+                                    }
+                                    break;
                             }
                         } catch (error) {
                             console.error("Erro ao processar mensagem:", error);
                         }
                     };
                     
-                    socket.onclose = function(event) {
+                    ws.onclose = function(event) {
                         if (event.wasClean) {
                             console.log(`Conexão fechada limpa, código=${event.code} motivo=${event.reason}`);
                             updateConnectionStatus('disconnected');
@@ -418,10 +859,18 @@
                         }
                     };
                     
-                    socket.onerror = function(error) {
-                        console.error("Erro no WebSocket:", error);
-                        updateConnectionStatus('disconnected');
-                    };
+                    socket = ws;
+                    updateConnectionStatus('connected');
+                    reconnectAttempts = 0;
+                    
+                    // Registra o usuário no servidor
+                    if (nickname) {
+                        socket.send(JSON.stringify({
+                            type: 'register',
+                            nickname: nickname,
+                            timestamp: new Date().toISOString()
+                        }));
+                    }
                     
                 } catch (error) {
                     console.error("Erro ao conectar ao WebSocket:", error);
@@ -435,16 +884,42 @@
             }
             
             // Função para mostrar mensagem no chat
-            function displayMessage(sender, message, isCurrentUser = false, timestamp = null) {
+            function displayMessage(sender, message, isCurrentUser = false, timestamp = null, messageId = null, replyTo = null) {
+                // Verifica se a mensagem já existe (para evitar duplicação)
+                if (messageId && document.querySelector(`[data-message-id="${messageId}"]`)) {
+                    return;
+                }
+                
                 const messageDiv = document.createElement('div');
-                messageDiv.className = `mb-3 message-animation`;
+                messageDiv.className = `mb-3 message-animation relative`;
+                if (messageId) {
+                    messageDiv.setAttribute('data-message-id', messageId);
+                }
                 
                 const messageContainer = document.createElement('div');
-                messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`;
+                messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-800'}`;
+                
+                // Adiciona avatar (simplificado)
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar';
+                avatar.textContent = sender.charAt(0).toUpperCase();
+                
+                // Container de conteúdo
+                const contentContainer = document.createElement('div');
+                contentContainer.className = 'flex items-start';
+                
+                // Se for mensagem do usuário atual, não mostra avatar
+                if (!isCurrentUser) {
+                    contentContainer.appendChild(avatar);
+                }
+                
+                // Container de texto
+                const textContainer = document.createElement('div');
+                textContainer.className = `flex-1 ${isCurrentUser ? 'text-right' : 'text-left'}`;
                 
                 // Adiciona informações do remetente
                 const senderDiv = document.createElement('div');
-                senderDiv.className = `text-xs font-semibold ${isCurrentUser ? 'text-blue-100' : 'text-gray-600'}`;
+                senderDiv.className = `text-xs font-semibold ${isCurrentUser ? 'text-indigo-100' : 'text-gray-600'}`;
                 senderDiv.textContent = sender;
                 
                 // Adiciona conteúdo da mensagem
@@ -452,39 +927,274 @@
                 messageContent.className = 'py-1';
                 messageContent.textContent = message;
                 
+                // Adiciona reply se existir
+                if (replyTo) {
+                    const replyInfo = document.createElement('div');
+                    replyInfo.className = 'reply-info';
+                    replyInfo.textContent = `Respondendo a ${replyTo.sender}`;
+                    
+                    const replyContent = document.createElement('div');
+                    replyContent.className = 'message-reply';
+                    replyContent.textContent = replyTo.content.length > 30 ? 
+                        replyTo.content.substring(0, 30) + '...' : 
+                        replyTo.content;
+                    
+                    textContainer.appendChild(replyInfo);
+                    textContainer.appendChild(replyContent);
+                }
+                
+                textContainer.appendChild(senderDiv);
+                textContainer.appendChild(messageContent);
+                
                 // Adiciona timestamp se disponível
                 if (timestamp) {
                     const timeDiv = document.createElement('div');
-                    timeDiv.className = `text-xs text-right ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`;
+                    timeDiv.className = `text-xs ${isCurrentUser ? 'text-indigo-100' : 'text-gray-500'}`;
                     
                     const messageTime = new Date(timestamp);
                     timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     
-                    messageContainer.appendChild(senderDiv);
-                    messageContainer.appendChild(messageContent);
-                    messageContainer.appendChild(timeDiv);
+                    textContainer.appendChild(timeDiv);
+                }
+                
+                // Adiciona menu de opções para mensagens do usuário atual
+                if (isCurrentUser) {
+                    const menuBtn = document.createElement('button');
+                    menuBtn.className = 'ml-2 text-gray-400 hover:text-gray-600';
+                    menuBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+                    menuBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        toggleMessageMenu(messageId);
+                    };
+                    
+                    textContainer.appendChild(menuBtn);
+                }
+                
+                contentContainer.appendChild(textContainer);
+                messageContainer.appendChild(contentContainer);
+                
+                // Se for mensagem do usuário atual, alinha à direita
+                if (isCurrentUser) {
+                    messageDiv.className += ' flex justify-end';
                 } else {
-                    messageContainer.appendChild(senderDiv);
-                    messageContainer.appendChild(messageContent);
+                    messageDiv.className += ' flex justify-start';
+                    
+                    // Adiciona menu de resposta e reação para mensagens de outros usuários
+                    const reactionBtn = document.createElement('button');
+                    reactionBtn.className = 'ml-2 text-gray-400 hover:text-gray-600';
+                    reactionBtn.innerHTML = '<i class="far fa-smile"></i>';
+                    reactionBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        showReactionPicker(messageId, e.target);
+                    };
+                    
+                    const replyBtn = document.createElement('button');
+                    replyBtn.className = 'ml-2 text-gray-400 hover:text-gray-600';
+                    replyBtn.innerHTML = '<i class="fas fa-reply"></i>';
+                    replyBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        setReplyTo(messageId, sender, message);
+                    };
+                    
+                    const actionContainer = document.createElement('div');
+                    actionContainer.className = 'flex mt-1';
+                    actionContainer.appendChild(reactionBtn);
+                    actionContainer.appendChild(replyBtn);
+                    
+                    textContainer.appendChild(actionContainer);
                 }
                 
                 messageDiv.appendChild(messageContainer);
                 
-                // Alinha à direita se for a mensagem do usuário atual
-                if (isCurrentUser) {
-                    messageDiv.className += ' text-right';
-                } else {
-                    messageDiv.className += ' text-left';
-                }
-                
                 // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.text-center');
+                const emptyMessage = chatMessages.querySelector('.empty-chat');
                 if (emptyMessage) {
                     chatMessages.removeChild(emptyMessage);
                 }
                 
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Função para mostrar menu de mensagem
+            function toggleMessageMenu(messageId) {
+                if (messageMenuOpen === messageId) {
+                    // Fecha o menu se já estiver aberto
+                    const existingMenu = document.querySelector('.message-options');
+                    if (existingMenu) {
+                        existingMenu.remove();
+                    }
+                    messageMenuOpen = null;
+                    return;
+                }
+                
+                // Remove qualquer menu existente
+                const existingMenu = document.querySelector('.message-options');
+                if (existingMenu) {
+                    existingMenu.remove();
+                }
+                
+                // Cria novo menu
+                const menu = document.createElement('div');
+                menu.className = 'message-options';
+                
+                const deleteOption = document.createElement('div');
+                deleteOption.className = 'message-option delete';
+                deleteOption.innerHTML = '<i class="fas fa-trash mr-2"></i> Excluir';
+                deleteOption.onclick = () => {
+                    // Implementar lógica para excluir mensagem
+                    alert('Funcionalidade de exclusão será implementada em breve!');
+                    menu.remove();
+                    messageMenuOpen = null;
+                };
+                
+                menu.appendChild(deleteOption);
+                
+                // Adiciona menu ao DOM
+                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (messageElement) {
+                    messageElement.appendChild(menu);
+                    messageMenuOpen = messageId;
+                }
+                
+                // Fecha o menu ao clicar fora
+                setTimeout(() => {
+                    document.addEventListener('click', function closeMenu(e) {
+                        if (!messageElement.contains(e.target)) {
+                            menu.remove();
+                            messageMenuOpen = null;
+                            document.removeEventListener('click', closeMenu);
+                        }
+                    });
+                }, 10);
+            }
+            
+            // Função para mostrar seletor de reações
+            function showReactionPicker(messageId, target) {
+                // Remove qualquer seletor existente
+                const existingPicker = document.querySelector('.reaction-picker');
+                if (existingPicker) {
+                    existingPicker.remove();
+                    return;
+                }
+                
+                // Cria novo seletor
+                const picker = document.createElement('div');
+                picker.className = 'reaction-picker';
+                
+                // Reações disponíveis
+                const reactions = ['👍', '❤️', '😂', '😮', '😢', '👏'];
+                
+                reactions.forEach(reaction => {
+                    const option = document.createElement('span');
+                    option.className = 'reaction-option';
+                    option.textContent = reaction;
+                    option.onclick = () => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({
+                                type: 'reaction',
+                                messageId: messageId,
+                                reaction: reaction,
+                                sender: nickname
+                            }));
+                        }
+                        picker.remove();
+                    };
+                    
+                    picker.appendChild(option);
+                });
+                
+                // Posiciona o seletor
+                const rect = target.getBoundingClientRect();
+                picker.style.left = `${rect.left - 100}px`;
+                picker.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+                
+                document.body.appendChild(picker);
+                
+                // Fecha o seletor ao clicar fora
+                setTimeout(() => {
+                    document.addEventListener('click', function closePicker(e) {
+                        if (!picker.contains(e.target) && e.target !== target) {
+                            picker.remove();
+                            document.removeEventListener('click', closePicker);
+                        }
+                    });
+                }, 10);
+            }
+            
+            // Função para atualizar reações da mensagem
+            function updateMessageReactions(messageElement, reactions) {
+                // Remove qualquer reação existente
+                const existingReactions = messageElement.querySelector('.message-reactions');
+                if (existingReactions) {
+                    existingReactions.remove();
+                }
+                
+                // Se não houver reações, não faz nada
+                if (!reactions || Object.keys(reactions).length === 0) {
+                    return;
+                }
+                
+                // Cria container de reações
+                const reactionsContainer = document.createElement('div');
+                reactionsContainer.className = 'message-reactions';
+                
+                // Adiciona cada reação
+                for (const reaction in reactions) {
+                    const users = Array.from(reactions[reaction]);
+                    const count = users.length;
+                    
+                    const reactionBtn = document.createElement('span');
+                    reactionBtn.className = 'reaction-btn';
+                    if (users.includes(nickname)) {
+                        reactionBtn.classList.add('active');
+                    }
+                    
+                    reactionBtn.textContent = `${reaction} ${count > 1 ? count : ''}`;
+                    reactionBtn.title = users.join(', ');
+                    
+                    reactionBtn.onclick = () => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({
+                                type: 'reaction',
+                                messageId: messageElement.getAttribute('data-message-id'),
+                                reaction: reaction,
+                                sender: nickname
+                            }));
+                        }
+                    };
+                    
+                    reactionsContainer.appendChild(reactionBtn);
+                }
+                
+                // Adiciona ao DOM
+                const messageContent = messageElement.querySelector('div > div > div'); // Acha o container de conteúdo
+                if (messageContent) {
+                    messageContent.appendChild(reactionsContainer);
+                }
+            }
+            
+            // Função para configurar resposta a uma mensagem
+            function setReplyTo(messageId, sender, content) {
+                currentReply = {
+                    id: messageId,
+                    sender: sender,
+                    content: content
+                };
+                
+                replyToUser.textContent = sender;
+                replyPreviewContent.textContent = content.length > 50 ? 
+                    content.substring(0, 50) + '...' : 
+                    content;
+                
+                replyPreview.classList.remove('hidden');
+                messageInput.focus();
+            }
+            
+            // Função para cancelar resposta
+            function cancelReply() {
+                currentReply = null;
+                replyPreview.classList.add('hidden');
             }
             
             // Função para mostrar mensagem de entrada no chat
@@ -513,7 +1223,7 @@
                 }
                 
                 // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.text-center');
+                const emptyMessage = chatMessages.querySelector('.empty-chat');
                 if (emptyMessage) {
                     chatMessages.removeChild(emptyMessage);
                 }
@@ -548,7 +1258,7 @@
                 }
                 
                 // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.text-center');
+                const emptyMessage = chatMessages.querySelector('.empty-chat');
                 if (emptyMessage) {
                     chatMessages.removeChild(emptyMessage);
                 }
@@ -583,7 +1293,7 @@
                 }
                 
                 // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.text-center');
+                const emptyMessage = chatMessages.querySelector('.empty-chat');
                 if (emptyMessage) {
                     chatMessages.removeChild(emptyMessage);
                 }
@@ -595,7 +1305,7 @@
             // Função para limpar o chat
             function clearChat() {
                 if (confirm('Tem certeza que deseja limpar todas as mensagens do chat?')) {
-                    chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+                    chatMessages.innerHTML = '<div class="empty-chat text-center text-gray-500 py-4 h-full flex flex-col items-center justify-center"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
                 }
             }
             
@@ -679,16 +1389,18 @@
                         type: 'message',
                         sender: nickname,
                         content: message,
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        replyTo: currentReply || null
                     };
                     
                     // Envia a mensagem para o servidor
                     socket.send(JSON.stringify(messageData));
-                    
-                    // Exibe a mensagem localmente como "enviada"
-                    displayMessage(nickname, message, true, new Date().toISOString());
-                    
                     messageInput.value = '';
+                    
+                    // Cancela a resposta se existir
+                    if (currentReply) {
+                        cancelReply();
+                    }
                     
                     // Notifica que parou de digitar
                     if (isTyping) {
@@ -744,14 +1456,36 @@
                                 oldNickname: oldNickname,
                                 newNickname: nickname
                             }));
-                            
-                            showNotification(`Seu nickname foi alterado para ${nickname}`);
                         } catch (error) {
                             console.error("Erro ao enviar mudança de nickname:", error);
                             displaySystemMessage('Erro ao atualizar nickname. Tentando reconectar...');
                             connectWebSocket();
                         }
                     }
+                }
+            }
+            
+            // Função para mostrar/ocultar emoji picker
+            function toggleEmojiPicker() {
+                if (emojiPicker.classList.contains('hidden')) {
+                    emojiPicker.classList.remove('hidden');
+                    
+                    // Posiciona o emoji picker
+                    const rect = emojiBtn.getBoundingClientRect();
+                    emojiPicker.style.left = `${rect.left - emojiPicker.offsetWidth + rect.width}px`;
+                    emojiPicker.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+                    
+                    // Fecha ao clicar fora
+                    setTimeout(() => {
+                        document.addEventListener('click', function closePicker(e) {
+                            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+                                emojiPicker.classList.add('hidden');
+                                document.removeEventListener('click', closePicker);
+                            }
+                        });
+                    }, 10);
+                } else {
+                    emojiPicker.classList.add('hidden');
                 }
             }
             
@@ -802,6 +1536,19 @@
                     'Mostrar usuários' : 'Ocultar usuários';
             });
             
+            emojiBtn.addEventListener('click', toggleEmojiPicker);
+            
+            // Adiciona eventos para emojis
+            document.querySelectorAll('.emoji-option').forEach(emoji => {
+                emoji.addEventListener('click', function() {
+                    messageInput.value += this.textContent;
+                    messageInput.focus();
+                    emojiPicker.classList.add('hidden');
+                });
+            });
+            
+            cancelReplyBtn.addEventListener('click', cancelReply);
+            
             // Fecha o chat quando a página é fechada
             window.addEventListener('beforeunload', function() {
                 if (socket && socket.readyState === WebSocket.OPEN) {
@@ -811,6 +1558,22 @@
             
             // Mostra status da conexão
             updateConnectionStatus('disconnected');
+            
+            // Fecha menus ao rolar
+            chatMessages.addEventListener('scroll', function() {
+                const existingMenu = document.querySelector('.message-options');
+                if (existingMenu) {
+                    existingMenu.remove();
+                    messageMenuOpen = null;
+                }
+                
+                const existingPicker = document.querySelector('.reaction-picker');
+                if (existingPicker) {
+                    existingPicker.remove();
+                }
+                
+                emojiPicker.classList.add('hidden');
+            });
         });
     </script>
 </body>
