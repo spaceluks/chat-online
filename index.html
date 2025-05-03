@@ -140,6 +140,32 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        
+        /* Novo estilo para mensagens de entrada/saída */
+        .join-message {
+            background-color: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .leave-message {
+            background-color: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        /* Estilo para mensagens do sistema */
+        .system-message {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 0 4px 4px 0;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
@@ -156,8 +182,8 @@
         <div class="bg-white p-6 rounded-lg shadow-xl w-96">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Bem-vindo ao Chat</h2>
             <p class="text-gray-600 mb-4">Digite seu nickname para começar a conversar:</p>
-            <input type="text" id="nickname-input" placeholder="Seu nickname" 
-                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
+            <input type="text" id="nickname-input" placeholder="Seu nickname"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
             <div class="flex justify-end">
                 <button id="enter-chat-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
                     Entrar no Chat
@@ -217,8 +243,8 @@
         <!-- Área de envio de mensagens -->
         <div class="bg-white shadow rounded-b-lg p-4">
             <div class="flex space-x-2">
-                <input type="text" id="message-input" placeholder="Digite sua mensagem..." 
-                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="message-input" placeholder="Digite sua mensagem..."
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button id="send-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200">
                     <i class="fas fa-paper-plane"></i>
                 </button>
@@ -259,14 +285,14 @@
                         data: JSON.stringify({
                             type: 'history',
                             messages: this.messages.slice(-50)
-                        }) 
+                        })
                     });
                 }
                 
                 // Notifica todos sobre o novo usuário
                 this.broadcast({
-                    type: 'system_message',
-                    content: `${ws.nickname} entrou no chat`,
+                    type: 'user_join',
+                    nickname: ws.nickname,
                     timestamp: new Date().toISOString()
                 });
                 
@@ -279,8 +305,8 @@
                 // Notifica todos sobre a saída do usuário
                 if (ws.nickname) {
                     this.broadcast({
-                        type: 'system_message',
-                        content: `${ws.nickname} saiu do chat`,
+                        type: 'user_leave',
+                        nickname: ws.nickname,
                         timestamp: new Date().toISOString()
                     });
                 }
@@ -289,9 +315,9 @@
             },
             
             updateUserList: function() {
-                const userList = Array.from(new Set(this.clients
+                const userList = this.clients
                     .filter(client => client.nickname)
-                    .map(client => client.nickname)));
+                    .map(client => client.nickname);
                 
                 this.broadcast({
                     type: 'user_list',
@@ -348,7 +374,7 @@
             
             // Variáveis de estado
             let nickname = '';
-            let users = new Set();
+            let users = [];
             let typingTimeout;
             let socket;
             let isTyping = false;
@@ -465,7 +491,15 @@
                                     break;
                                     
                                 case 'system_message':
-                                    displayMessage('Sistema', data.content, true, data.timestamp);
+                                    displaySystemMessage(data.content, data.timestamp);
+                                    break;
+                                    
+                                case 'user_join':
+                                    displayJoinMessage(data.nickname, data.timestamp);
+                                    break;
+                                    
+                                case 'user_leave':
+                                    displayLeaveMessage(data.nickname, data.timestamp);
                                     break;
                             }
                         } catch (error) {
@@ -487,7 +521,7 @@
                                 setTimeout(connectWebSocket, reconnectDelay);
                             } else {
                                 console.log('Número máximo de tentativas de reconexão alcançado');
-                                displayMessage('Sistema', 'Não foi possível reconectar ao servidor. Por favor, recarregue a página.', true);
+                                displaySystemMessage('Não foi possível reconectar ao servidor. Por favor, recarregue a página.');
                             }
                         }
                     };
@@ -517,46 +551,151 @@
             }
             
             // Função para mostrar mensagem no chat
-            function displayMessage(sender, message, isSystem = false, timestamp = null) {
+            function displayMessage(sender, message, isCurrentUser = false, timestamp = null) {
                 const messageDiv = document.createElement('div');
-                messageDiv.className = `mb-3 message-animation ${isSystem ? 'text-center text-gray-500 italic' : ''}`;
+                messageDiv.className = `mb-3 message-animation`;
                 
-                if (!isSystem) {
-                    const isCurrentUser = sender === nickname;
-                    messageDiv.className += isCurrentUser ? ' text-right' : ' text-left';
+                const messageContainer = document.createElement('div');
+                messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`;
+                
+                // Adiciona informações do remetente
+                const senderDiv = document.createElement('div');
+                senderDiv.className = `text-xs font-semibold ${isCurrentUser ? 'text-blue-100' : 'text-gray-600'}`;
+                senderDiv.textContent = sender;
+                
+                // Adiciona conteúdo da mensagem
+                const messageContent = document.createElement('div');
+                messageContent.className = 'py-1';
+                messageContent.textContent = message;
+                
+                // Adiciona timestamp se disponível
+                if (timestamp) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = `text-xs text-right ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`;
                     
-                    const messageContainer = document.createElement('div');
-                    messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`;
+                    const messageTime = new Date(timestamp);
+                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                     
-                    // Adiciona informações do remetente
-                    const senderDiv = document.createElement('div');
-                    senderDiv.className = `text-xs font-semibold ${isCurrentUser ? 'text-blue-100' : 'text-gray-600'}`;
-                    senderDiv.textContent = sender;
-                    
-                    // Adiciona conteúdo da mensagem
-                    const messageContent = document.createElement('div');
-                    messageContent.className = 'py-1';
-                    messageContent.textContent = message;
-                    
-                    // Adiciona timestamp se disponível
-                    if (timestamp) {
-                        const timeDiv = document.createElement('div');
-                        timeDiv.className = `text-xs text-right ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`;
-                        
-                        const messageTime = new Date(timestamp);
-                        timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        
-                        messageContainer.appendChild(senderDiv);
-                        messageContainer.appendChild(messageContent);
-                        messageContainer.appendChild(timeDiv);
-                    } else {
-                        messageContainer.appendChild(senderDiv);
-                        messageContainer.appendChild(messageContent);
-                    }
-                    
-                    messageDiv.appendChild(messageContainer);
+                    messageContainer.appendChild(senderDiv);
+                    messageContainer.appendChild(messageContent);
+                    messageContainer.appendChild(timeDiv);
                 } else {
-                    messageDiv.textContent = message;
+                    messageContainer.appendChild(senderDiv);
+                    messageContainer.appendChild(messageContent);
+                }
+                
+                messageDiv.appendChild(messageContainer);
+                
+                // Alinha à direita se for a mensagem do usuário atual
+                if (isCurrentUser) {
+                    messageDiv.className += ' text-right';
+                } else {
+                    messageDiv.className += ' text-left';
+                }
+                
+                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
+                const emptyMessage = chatMessages.querySelector('.text-center');
+                if (emptyMessage) {
+                    chatMessages.removeChild(emptyMessage);
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Função para mostrar mensagem de entrada no chat
+            function displayJoinMessage(nickname, timestamp = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'mb-3 message-animation join-message';
+                
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-user-plus mr-2 text-green-500';
+                
+                const messageText = document.createElement('span');
+                messageText.textContent = `${nickname} entrou no chat`;
+                
+                messageDiv.appendChild(icon);
+                messageDiv.appendChild(messageText);
+                
+                // Adiciona timestamp se disponível
+                if (timestamp) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'text-xs text-right text-gray-500 mt-1';
+                    
+                    const messageTime = new Date(timestamp);
+                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    messageDiv.appendChild(timeDiv);
+                }
+                
+                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
+                const emptyMessage = chatMessages.querySelector('.text-center');
+                if (emptyMessage) {
+                    chatMessages.removeChild(emptyMessage);
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Função para mostrar mensagem de saída do chat
+            function displayLeaveMessage(nickname, timestamp = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'mb-3 message-animation leave-message';
+                
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-user-minus mr-2 text-red-500';
+                
+                const messageText = document.createElement('span');
+                messageText.textContent = `${nickname} saiu do chat`;
+                
+                messageDiv.appendChild(icon);
+                messageDiv.appendChild(messageText);
+                
+                // Adiciona timestamp se disponível
+                if (timestamp) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'text-xs text-right text-gray-500 mt-1';
+                    
+                    const messageTime = new Date(timestamp);
+                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    messageDiv.appendChild(timeDiv);
+                }
+                
+                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
+                const emptyMessage = chatMessages.querySelector('.text-center');
+                if (emptyMessage) {
+                    chatMessages.removeChild(emptyMessage);
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Função para mostrar mensagem do sistema
+            function displaySystemMessage(message, timestamp = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'mb-3 message-animation system-message';
+                
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-info-circle mr-2 text-blue-500';
+                
+                const messageText = document.createElement('span');
+                messageText.textContent = message;
+                
+                messageDiv.appendChild(icon);
+                messageDiv.appendChild(messageText);
+                
+                // Adiciona timestamp se disponível
+                if (timestamp) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'text-xs text-right text-gray-500 mt-1';
+                    
+                    const messageTime = new Date(timestamp);
+                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    
+                    messageDiv.appendChild(timeDiv);
                 }
                 
                 // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
@@ -585,6 +724,9 @@
             function updateUsersList(usersArray) {
                 usersList.innerHTML = '';
                 updateUserCount(usersArray.length);
+                
+                // Atualiza a lista global de usuários
+                users = usersArray;
                 
                 usersArray.forEach(user => {
                     const userBadge = document.createElement('span');
@@ -643,7 +785,7 @@
                 if (message === '') return;
                 
                 if (!socket || socket.readyState !== WebSocket.OPEN) {
-                    displayMessage('Sistema', 'Não foi possível enviar a mensagem. Tentando reconectar...', true);
+                    displaySystemMessage('Não foi possível enviar a mensagem. Tentando reconectar...');
                     connectWebSocket();
                     return;
                 }
@@ -659,6 +801,9 @@
                     socket.send(JSON.stringify(messageData));
                     messageInput.value = '';
                     
+                    // Exibe a mensagem localmente imediatamente
+                    displayMessage(nickname, message, true, messageData.timestamp);
+                    
                     // Notifica que parou de digitar
                     if (isTyping) {
                         isTyping = false;
@@ -666,7 +811,7 @@
                     }
                 } catch (error) {
                     console.error("Erro ao enviar mensagem:", error);
-                    displayMessage('Sistema', 'Erro ao enviar mensagem. Tentando reconectar...', true);
+                    displaySystemMessage('Erro ao enviar mensagem. Tentando reconectar...');
                     connectWebSocket();
                 }
             }
@@ -715,7 +860,7 @@
                             }));
                         } catch (error) {
                             console.error("Erro ao enviar mudança de nickname:", error);
-                            displayMessage('Sistema', 'Erro ao atualizar nickname. Tentando reconectar...', true);
+                            displaySystemMessage('Erro ao atualizar nickname. Tentando reconectar...');
                             connectWebSocket();
                         }
                     }
