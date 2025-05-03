@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Online Simples</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Animação para novas mensagens */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-animation {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        /* Scrollbar personalizada */
+        #chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        #chat-messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        
+        #chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <!-- Modal de entrada -->
+    <div id="entry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-96">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Bem-vindo ao Chat</h2>
+            <p class="text-gray-600 mb-4">Digite seu nickname para começar a conversar:</p>
+            <input type="text" id="nickname-input" placeholder="Seu nickname" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
+            <div class="flex justify-end">
+                <button id="enter-chat-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">Entrar no Chat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container principal do chat -->
+    <div class="container mx-auto max-w-4xl flex-1 flex flex-col p-4 hidden" id="chat-container">
+        <!-- Cabeçalho -->
+        <header class="bg-white shadow rounded-t-lg p-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">Chat Online</h1>
+                <p class="text-sm text-gray-500">Conectado como: <span id="current-nickname" class="font-semibold text-blue-600"></span></p>
+            </div>
+            <div class="flex space-x-2">
+                <button id="clear-chat-btn" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition duration-200" title="Limpar chat">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <button id="change-nick-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded-full transition duration-200" title="Mudar nickname">
+                    <i class="fas fa-user-edit"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Área de mensagens -->
+        <div id="chat-messages" class="flex-1 bg-white p-4 overflow-y-auto max-h-[60vh]">
+            <div class="text-center text-gray-500 py-4">
+                <p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p>
+            </div>
+        </div>
+
+        <!-- Área de envio de mensagens -->
+        <div class="bg-white shadow rounded-b-lg p-4">
+            <div class="flex space-x-2">
+                <input type="text" id="message-input" placeholder="Digite sua mensagem..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="send-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="mt-2 flex justify-between text-xs text-gray-500">
+                <p>Pressione Enter para enviar</p>
+                <p id="user-count">0 usuários online</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos do DOM
+            const entryModal = document.getElementById('entry-modal');
+            const chatContainer = document.getElementById('chat-container');
+            const nicknameInput = document.getElementById('nickname-input');
+            const enterChatBtn = document.getElementById('enter-chat-btn');
+            const currentNickname = document.getElementById('current-nickname');
+            const messageInput = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const clearChatBtn = document.getElementById('clear-chat-btn');
+            const changeNickBtn = document.getElementById('change-nick-btn');
+            const userCount = document.getElementById('user-count');
+            
+            // Variáveis de estado
+            let nickname = '';
+            let users = new Set();
+            
+            // Função para mostrar mensagem no chat
+            function displayMessage(sender, message, isSystem = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `mb-3 message-animation ${isSystem ? 'text-center text-gray-500 italic' : ''}`;
+                
+                if (!isSystem) {
+                    const isCurrentUser = sender === nickname;
+                    messageDiv.className += isCurrentUser ? ' text-right' : ' text-left';
+                    
+                    const senderSpan = document.createElement('span');
+                    senderSpan.className = `text-sm font-semibold ${isCurrentUser ? 'text-blue-600' : 'text-gray-700'}`;
+                    senderSpan.textContent = sender + ':';
+                    
+                    const messageSpan = document.createElement('span');
+                    messageSpan.className = 'ml-2 text-gray-800';
+                    messageSpan.textContent = message;
+                    
+                    messageDiv.appendChild(senderSpan);
+                    messageDiv.appendChild(messageSpan);
+                } else {
+                    messageDiv.textContent = message;
+                }
+                
+                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
+                const emptyMessage = chatMessages.querySelector('.text-center');
+                if (emptyMessage) {
+                    chatMessages.removeChild(emptyMessage);
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Função para limpar o chat
+            function clearChat() {
+                chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+            }
+            
+            // Função para atualizar contagem de usuários
+            function updateUserCount() {
+                userCount.textContent = `${users.size} usuário${users.size !== 1 ? 's' : ''} online`;
+            }
+            
+            // Função para entrar no chat
+            function enterChat() {
+                const newNickname = nicknameInput.value.trim();
+                
+                if (newNickname === '') {
+                    alert('Por favor, digite um nickname válido.');
+                    return;
+                }
+                
+                nickname = newNickname;
+                currentNickname.textContent = nickname;
+                
+                // Adiciona o usuário à lista
+                users.add(nickname);
+                updateUserCount();
+                
+                // Esconde o modal e mostra o chat
+                entryModal.classList.add('hidden');
+                chatContainer.classList.remove('hidden');
+                
+                // Mostra mensagem de boas-vindas
+                displayMessage('Sistema', `${nickname} entrou no chat.`, true);
+                
+                // Foca no campo de mensagem
+                messageInput.focus();
+            }
+            
+            // Função para mudar nickname
+            function changeNickname() {
+                const newNickname = prompt('Digite seu novo nickname:', nickname);
+                
+                if (newNickname && newNickname.trim() !== '' && newNickname.trim() !== nickname) {
+                    const oldNickname = nickname;
+                    nickname = newNickname.trim();
+                    
+                    // Atualiza o nickname exibido
+                    currentNickname.textContent = nickname;
+                    
+                    // Atualiza no conjunto de usuários
+                    users.delete(oldNickname);
+                    users.add(nickname);
+                    
+                    // Mostra mensagem de mudança
+                    displayMessage('Sistema', `${oldNickname} agora é conhecido como ${nickname}.`, true);
+                }
+            }
+            
+            // Event Listeners
+            enterChatBtn.addEventListener('click', enterChat);
+            
+            nicknameInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    enterChat();
+                }
+            });
+            
+            sendBtn.addEventListener('click', function() {
+                const message = messageInput.value.trim();
+                if (message !== '') {
+                    displayMessage(nickname, message);
+                    messageInput.value = '';
+                }
+            });
+            
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const message = messageInput.value.trim();
+                    if (message !== '') {
+                        displayMessage(nickname, message);
+                        messageInput.value = '';
+                    }
+                }
+            });
+            
+            clearChatBtn.addEventListener('click', function() {
+                if (confirm('Tem certeza que deseja limpar todas as mensagens do chat?')) {
+                    clearChat();
+                }
+            });
+            
+            changeNickBtn.addEventListener('click', changeNickname);
+            
+            // Simula outros usuários (apenas para demonstração)
+            setInterval(() => {
+                if (Math.random() > 0.9 && users.size > 0) {
+                    const randomMessages = [
+                        "Olá pessoal!",
+                        "Como vocês estão?",
+                        "Alguém aí?",
+                        "Que dia lindo!",
+                        "Alguém quer conversar?",
+                        "Estou testando esse chat novo.",
+                        "Funciona muito bem!",
+                        "Gostei da interface.",
+                        "Quem criou isso fez um ótimo trabalho!",
+                        "Até mais tarde!"
+                    ];
+                    
+                    const randomUser = Array.from(users)[Math.floor(Math.random() * users.size)];
+                    if (randomUser !== nickname) {
+                        const randomMessage = randomMessages[Math.floor(Math.random() * randomMessages.length)];
+                        displayMessage(randomUser, randomMessage);
+                    }
+                }
+            }, 10000);
+        });
+    </script>
+</body>
+</html>
