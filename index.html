@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Online Simples</title>
+    <title>Chat em Tempo Real</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Animação para novas mensagens */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -17,7 +16,6 @@
             animation: fadeIn 0.3s ease-out;
         }
         
-        /* Scrollbar personalizada */
         #chat-messages::-webkit-scrollbar {
             width: 8px;
         }
@@ -35,6 +33,67 @@
         #chat-messages::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+        
+        .typing-indicator {
+            display: inline-block;
+        }
+        
+        .typing-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #888;
+            margin: 0 2px;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+        
+        .user-badge {
+            display: inline-flex;
+            align-items: center;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            padding: 2px 8px;
+            margin: 2px;
+            font-size: 0.75rem;
+        }
+        
+        .user-badge.you {
+            background-color: #bfdbfe;
+            font-weight: 600;
+        }
+        
+        .user-badge .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        
+        .user-badge .status-dot.online {
+            background-color: #10b981;
+        }
+        
+        .user-badge .status-dot.offline {
+            background-color: #ef4444;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
@@ -43,9 +102,12 @@
         <div class="bg-white p-6 rounded-lg shadow-xl w-96">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Bem-vindo ao Chat</h2>
             <p class="text-gray-600 mb-4">Digite seu nickname para começar a conversar:</p>
-            <input type="text" id="nickname-input" placeholder="Seu nickname" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
+            <input type="text" id="nickname-input" placeholder="Seu nickname" 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
             <div class="flex justify-end">
-                <button id="enter-chat-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">Entrar no Chat</button>
+                <button id="enter-chat-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                    Entrar no Chat
+                </button>
             </div>
         </div>
     </div>
@@ -55,10 +117,13 @@
         <!-- Cabeçalho -->
         <header class="bg-white shadow rounded-t-lg p-4 flex justify-between items-center">
             <div>
-                <h1 class="text-xl font-bold text-gray-800">Chat Online</h1>
+                <h1 class="text-xl font-bold text-gray-800">Chat em Tempo Real</h1>
                 <p class="text-sm text-gray-500">Conectado como: <span id="current-nickname" class="font-semibold text-blue-600"></span></p>
             </div>
             <div class="flex space-x-2">
+                <button id="users-toggle-btn" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-full transition duration-200" title="Mostrar usuários">
+                    <i class="fas fa-users"></i>
+                </button>
                 <button id="clear-chat-btn" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded-full transition duration-200" title="Limpar chat">
                     <i class="fas fa-trash-alt"></i>
                 </button>
@@ -68,6 +133,14 @@
             </div>
         </header>
 
+        <!-- Painel de usuários (oculto por padrão) -->
+        <div id="users-panel" class="hidden bg-white p-4 border-t border-b border-gray-200">
+            <h3 class="font-semibold text-gray-700 mb-2">Usuários Online</h3>
+            <div id="users-list" class="flex flex-wrap gap-2">
+                <!-- Usuários serão adicionados aqui dinamicamente -->
+            </div>
+        </div>
+
         <!-- Área de mensagens -->
         <div id="chat-messages" class="flex-1 bg-white p-4 overflow-y-auto max-h-[60vh]">
             <div class="text-center text-gray-500 py-4">
@@ -75,10 +148,23 @@
             </div>
         </div>
 
+        <!-- Indicador de digitação -->
+        <div id="typing-indicator" class="hidden bg-white px-4 py-2 border-t border-gray-200">
+            <div class="text-sm text-gray-500 italic">
+                <span id="typing-users"></span>
+                <span class="typing-indicator">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </span>
+            </div>
+        </div>
+
         <!-- Área de envio de mensagens -->
         <div class="bg-white shadow rounded-b-lg p-4">
             <div class="flex space-x-2">
-                <input type="text" id="message-input" placeholder="Digite sua mensagem..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="message-input" placeholder="Digite sua mensagem..." 
+                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <button id="send-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200">
                     <i class="fas fa-paper-plane"></i>
                 </button>
@@ -89,6 +175,117 @@
             </div>
         </div>
     </div>
+
+    <!-- Código do servidor Python (comentado para referência) -->
+    <!--
+    <script type="text/python">
+        # Servidor WebSocket em Python (requer websockets package)
+        import asyncio
+        import websockets
+        import json
+        from datetime import datetime
+
+        connected = set()
+        users = {}
+
+        async def chat_server(websocket, path):
+            # Adiciona novo usuário
+            connected.add(websocket)
+            user_data = None
+            
+            try:
+                async for message in websocket:
+                    data = json.loads(message)
+                    
+                    if data['type'] == 'register':
+                        # Registra novo usuário
+                        user_data = {
+                            'nickname': data['nickname'],
+                            'last_seen': datetime.now().isoformat(),
+                            'typing': False
+                        }
+                        users[websocket] = user_data
+                        
+                        # Notifica todos sobre o novo usuário
+                        broadcast_message = {
+                            'type': 'system',
+                            'content': f"{user_data['nickname']} entrou no chat.",
+                            'users': {k: v['nickname'] for k, v in users.items()}
+                        }
+                        await broadcast(broadcast_message)
+                    
+                    elif data['type'] == 'message':
+                        # Envia mensagem para todos
+                        broadcast_message = {
+                            'type': 'message',
+                            'sender': user_data['nickname'],
+                            'content': data['content'],
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        await broadcast(broadcast_message)
+                    
+                    elif data['type'] == 'typing':
+                        # Atualiza status de digitação
+                        user_data['typing'] = data['isTyping']
+                        
+                        # Envia atualização para todos
+                        typing_users = [u['nickname'] for u in users.values() if u['typing'] and u['nickname'] != user_data['nickname']]
+                        if typing_users:
+                            broadcast_message = {
+                                'type': 'typing',
+                                'users': typing_users
+                            }
+                            await broadcast(broadcast_message)
+                        else:
+                            # Se ninguém estiver digitando, envia mensagem para limpar o indicador
+                            broadcast_message = {
+                                'type': 'typing',
+                                'users': []
+                            }
+                            await broadcast(broadcast_message)
+                    
+                    elif data['type'] == 'nickname_change':
+                        old_nickname = user_data['nickname']
+                        user_data['nickname'] = data['newNickname']
+                        
+                        # Notifica todos sobre a mudança
+                        broadcast_message = {
+                            'type': 'system',
+                            'content': f"{old_nickname} agora é conhecido como {user_data['nickname']}.",
+                            'users': {k: v['nickname'] for k, v in users.items()}
+                        }
+                        await broadcast(broadcast_message)
+                    
+                    # Atualiza último visto
+                    user_data['last_seen'] = datetime.now().isoformat()
+            
+            finally:
+                # Remove usuário quando desconecta
+                if websocket in users:
+                    nickname = users[websocket]['nickname']
+                    del users[websocket]
+                    connected.remove(websocket)
+                    
+                    # Notifica todos sobre a saída
+                    if connected:
+                        broadcast_message = {
+                            'type': 'system',
+                            'content': f"{nickname} saiu do chat.",
+                            'users': {k: v['nickname'] for k, v in users.items()}
+                        }
+                        await broadcast(broadcast_message)
+
+        async def broadcast(message):
+            if connected:
+                message_json = json.dumps(message)
+                await asyncio.wait([ws.send(message_json) for ws in connected])
+
+        start_server = websockets.serve(chat_server, "localhost", 8765)
+
+        asyncio.get_event_loop().run_until_complete(start_server)
+        asyncio.get_event_loop().run_forever()
+    </script>
+    -->
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -104,13 +301,71 @@
             const clearChatBtn = document.getElementById('clear-chat-btn');
             const changeNickBtn = document.getElementById('change-nick-btn');
             const userCount = document.getElementById('user-count');
+            const usersPanel = document.getElementById('users-panel');
+            const usersList = document.getElementById('users-list');
+            const usersToggleBtn = document.getElementById('users-toggle-btn');
+            const typingIndicator = document.getElementById('typing-indicator');
+            const typingUsers = document.getElementById('typing-users');
             
             // Variáveis de estado
             let nickname = '';
             let users = new Set();
+            let typingTimeout;
+            let socket;
+            let isTyping = false;
+            
+            // Função para conectar ao WebSocket
+            function connectWebSocket() {
+                // Altere para o endereço do seu servidor WebSocket
+                const wsUri = "ws://localhost:8765";
+                socket = new WebSocket(wsUri);
+                
+                socket.onopen = function(e) {
+                    console.log("Conexão WebSocket estabelecida");
+                    
+                    // Registra o usuário no servidor
+                    socket.send(JSON.stringify({
+                        type: 'register',
+                        nickname: nickname
+                    }));
+                };
+                
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    switch(data.type) {
+                        case 'message':
+                            displayMessage(data.sender, data.content, false, data.timestamp);
+                            break;
+                            
+                        case 'system':
+                            displayMessage('Sistema', data.content, true);
+                            updateUsersList(data.users || []);
+                            break;
+                            
+                        case 'typing':
+                            updateTypingIndicator(data.users);
+                            break;
+                    }
+                };
+                
+                socket.onclose = function(event) {
+                    if (event.wasClean) {
+                        displayMessage('Sistema', 'Você foi desconectado do chat.', true);
+                    } else {
+                        displayMessage('Sistema', 'Conexão perdida. Tentando reconectar...', true);
+                        // Tenta reconectar após 5 segundos
+                        setTimeout(connectWebSocket, 5000);
+                    }
+                };
+                
+                socket.onerror = function(error) {
+                    console.error("Erro no WebSocket:", error);
+                };
+            }
             
             // Função para mostrar mensagem no chat
-            function displayMessage(sender, message, isSystem = false) {
+            function displayMessage(sender, message, isSystem = false, timestamp = null) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `mb-3 message-animation ${isSystem ? 'text-center text-gray-500 italic' : ''}`;
                 
@@ -118,16 +373,36 @@
                     const isCurrentUser = sender === nickname;
                     messageDiv.className += isCurrentUser ? ' text-right' : ' text-left';
                     
-                    const senderSpan = document.createElement('span');
-                    senderSpan.className = `text-sm font-semibold ${isCurrentUser ? 'text-blue-600' : 'text-gray-700'}`;
-                    senderSpan.textContent = sender + ':';
+                    const messageContainer = document.createElement('div');
+                    messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`;
                     
-                    const messageSpan = document.createElement('span');
-                    messageSpan.className = 'ml-2 text-gray-800';
-                    messageSpan.textContent = message;
+                    // Adiciona informações do remetente
+                    const senderDiv = document.createElement('div');
+                    senderDiv.className = `text-xs font-semibold ${isCurrentUser ? 'text-blue-100' : 'text-gray-600'}`;
+                    senderDiv.textContent = sender;
                     
-                    messageDiv.appendChild(senderSpan);
-                    messageDiv.appendChild(messageSpan);
+                    // Adiciona conteúdo da mensagem
+                    const messageContent = document.createElement('div');
+                    messageContent.className = 'py-1';
+                    messageContent.textContent = message;
+                    
+                    // Adiciona timestamp se disponível
+                    if (timestamp) {
+                        const timeDiv = document.createElement('div');
+                        timeDiv.className = `text-xs text-right ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`;
+                        
+                        const messageTime = new Date(timestamp);
+                        timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        
+                        messageContainer.appendChild(senderDiv);
+                        messageContainer.appendChild(messageContent);
+                        messageContainer.appendChild(timeDiv);
+                    } else {
+                        messageContainer.appendChild(senderDiv);
+                        messageContainer.appendChild(messageContent);
+                    }
+                    
+                    messageDiv.appendChild(messageContainer);
                 } else {
                     messageDiv.textContent = message;
                 }
@@ -144,12 +419,65 @@
             
             // Função para limpar o chat
             function clearChat() {
-                chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+                if (confirm('Tem certeza que deseja limpar todas as mensagens do chat?')) {
+                    chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+                }
             }
             
             // Função para atualizar contagem de usuários
-            function updateUserCount() {
-                userCount.textContent = `${users.size} usuário${users.size !== 1 ? 's' : ''} online`;
+            function updateUserCount(count) {
+                userCount.textContent = `${count} usuário${count !== 1 ? 's' : ''} online`;
+            }
+            
+            // Função para atualizar a lista de usuários
+            function updateUsersList(usersArray) {
+                usersList.innerHTML = '';
+                updateUserCount(usersArray.length);
+                
+                usersArray.forEach(user => {
+                    const userBadge = document.createElement('span');
+                    userBadge.className = `user-badge ${user === nickname ? 'you' : ''}`;
+                    
+                    const statusDot = document.createElement('span');
+                    statusDot.className = 'status-dot online';
+                    
+                    const userName = document.createElement('span');
+                    userName.textContent = user;
+                    
+                    userBadge.appendChild(statusDot);
+                    userBadge.appendChild(userName);
+                    usersList.appendChild(userBadge);
+                });
+            }
+            
+            // Função para atualizar o indicador de digitação
+            function updateTypingIndicator(typingUsersList) {
+                if (typingUsersList.length > 0) {
+                    let usersText;
+                    
+                    if (typingUsersList.length === 1) {
+                        usersText = `${typingUsersList[0]} está digitando`;
+                    } else if (typingUsersList.length === 2) {
+                        usersText = `${typingUsersList[0]} e ${typingUsersList[1]} estão digitando`;
+                    } else {
+                        usersText = `${typingUsersList[0]}, ${typingUsersList[1]} e outros estão digitando`;
+                    }
+                    
+                    typingUsers.textContent = usersText;
+                    typingIndicator.classList.remove('hidden');
+                } else {
+                    typingIndicator.classList.add('hidden');
+                }
+            }
+            
+            // Função para notificar que o usuário está digitando
+            function notifyTyping(isTyping) {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'typing',
+                        isTyping: isTyping
+                    }));
+                }
             }
             
             // Função para entrar no chat
@@ -164,16 +492,12 @@
                 nickname = newNickname;
                 currentNickname.textContent = nickname;
                 
-                // Adiciona o usuário à lista
-                users.add(nickname);
-                updateUserCount();
-                
                 // Esconde o modal e mostra o chat
                 entryModal.classList.add('hidden');
                 chatContainer.classList.remove('hidden');
                 
-                // Mostra mensagem de boas-vindas
-                displayMessage('Sistema', `${nickname} entrou no chat.`, true);
+                // Conecta ao WebSocket
+                connectWebSocket();
                 
                 // Foca no campo de mensagem
                 messageInput.focus();
@@ -190,12 +514,13 @@
                     // Atualiza o nickname exibido
                     currentNickname.textContent = nickname;
                     
-                    // Atualiza no conjunto de usuários
-                    users.delete(oldNickname);
-                    users.add(nickname);
-                    
-                    // Mostra mensagem de mudança
-                    displayMessage('Sistema', `${oldNickname} agora é conhecido como ${nickname}.`, true);
+                    // Envia mensagem de mudança para o servidor
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            type: 'nickname_change',
+                            newNickname: nickname
+                        }));
+                    }
                 }
             }
             
@@ -210,53 +535,76 @@
             
             sendBtn.addEventListener('click', function() {
                 const message = messageInput.value.trim();
-                if (message !== '') {
-                    displayMessage(nickname, message);
+                if (message !== '' && socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'message',
+                        content: message
+                    }));
                     messageInput.value = '';
+                    
+                    // Notifica que parou de digitar
+                    if (isTyping) {
+                        isTyping = false;
+                        notifyTyping(false);
+                    }
                 }
             });
             
             messageInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     const message = messageInput.value.trim();
-                    if (message !== '') {
-                        displayMessage(nickname, message);
+                    if (message !== '' && socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            type: 'message',
+                            content: message
+                        }));
                         messageInput.value = '';
+                        
+                        // Notifica que parou de digitar
+                        if (isTyping) {
+                            isTyping = false;
+                            notifyTyping(false);
+                        }
                     }
                 }
             });
             
-            clearChatBtn.addEventListener('click', function() {
-                if (confirm('Tem certeza que deseja limpar todas as mensagens do chat?')) {
-                    clearChat();
+            messageInput.addEventListener('input', function() {
+                // Notifica que está digitando
+                if (!isTyping) {
+                    isTyping = true;
+                    notifyTyping(true);
                 }
+                
+                // Reseta o timeout
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(function() {
+                    if (isTyping) {
+                        isTyping = false;
+                        notifyTyping(false);
+                    }
+                }, 2000);
             });
+            
+            clearChatBtn.addEventListener('click', clearChat);
             
             changeNickBtn.addEventListener('click', changeNickname);
             
-            // Simula outros usuários (apenas para demonstração)
-            setInterval(() => {
-                if (Math.random() > 0.9 && users.size > 0) {
-                    const randomMessages = [
-                        "Olá pessoal!",
-                        "Como vocês estão?",
-                        "Alguém aí?",
-                        "Que dia lindo!",
-                        "Alguém quer conversar?",
-                        "Estou testando esse chat novo.",
-                        "Funciona muito bem!",
-                        "Gostei da interface.",
-                        "Quem criou isso fez um ótimo trabalho!",
-                        "Até mais tarde!"
-                    ];
-                    
-                    const randomUser = Array.from(users)[Math.floor(Math.random() * users.size)];
-                    if (randomUser !== nickname) {
-                        const randomMessage = randomMessages[Math.floor(Math.random() * randomMessages.length)];
-                        displayMessage(randomUser, randomMessage);
-                    }
+            usersToggleBtn.addEventListener('click', function() {
+                usersPanel.classList.toggle('hidden');
+                usersToggleBtn.innerHTML = usersPanel.classList.contains('hidden') ? 
+                    '<i class="fas fa-users"></i>' : 
+                    '<i class="fas fa-times"></i>';
+                usersToggleBtn.title = usersPanel.classList.contains('hidden') ? 
+                    'Mostrar usuários' : 'Ocultar usuários';
+            });
+            
+            // Fecha o chat quando a página é fechada
+            window.addEventListener('beforeunload', function() {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.close();
                 }
-            }, 10000);
+            });
         });
     </script>
 </body>
