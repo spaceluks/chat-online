@@ -264,10 +264,9 @@
             
             // Função para conectar ao WebSocket
             function connectWebSocket() {
-                // Altere para o endereço do seu servidor WebSocket
-                const wsUri = "wss://echo.websocket.org"; // Servidor de teste público
-                // Para produção, use seu próprio servidor WebSocket:
-                // const wsUri = "wss://seu-servidor.com/chat";
+                // Usando um servidor WebSocket público para demonstração
+                // Em produção, substitua por seu próprio servidor WebSocket
+                const wsUri = "wss://ws.postman-echo.com/raw";
                 
                 updateConnectionStatus('reconnecting');
                 
@@ -281,10 +280,12 @@
                         
                         // Registra o usuário no servidor
                         if (nickname) {
-                            socket.send(JSON.stringify({
+                            const registerMsg = {
                                 type: 'register',
-                                nickname: nickname
-                            }));
+                                nickname: nickname,
+                                timestamp: new Date().toISOString()
+                            };
+                            socket.send(JSON.stringify(registerMsg));
                         }
                     };
                     
@@ -312,9 +313,19 @@
                                     // Responde ao ping do servidor
                                     socket.send(JSON.stringify({ type: 'pong' }));
                                     break;
+                                    
+                                default:
+                                    // Trata mensagens recebidas de outros usuários
+                                    if (data.sender && data.message) {
+                                        displayMessage(data.sender, data.message, false, data.timestamp);
+                                    }
                             }
                         } catch (error) {
                             console.error("Erro ao processar mensagem:", error);
+                            // Se não for JSON, trata como mensagem simples
+                            if (typeof event.data === 'string') {
+                                displayMessage('Servidor', event.data, true);
+                            }
                         }
                     };
                     
@@ -432,7 +443,7 @@
                 userCount.textContent = `${count} usuário${count !== 1 ? 's' : ''} online`;
             }
             
-            // Função para atualizar a lista de usuários
+            // Função para atualizar la lista de usuários
             function updateUsersList(usersArray) {
                 usersList.innerHTML = '';
                 updateUserCount(usersArray.length);
@@ -479,7 +490,8 @@
                     try {
                         socket.send(JSON.stringify({
                             type: 'typing',
-                            isTyping: isTyping
+                            isTyping: isTyping,
+                            sender: nickname
                         }));
                     } catch (error) {
                         console.error("Erro ao enviar status de digitação:", error);
@@ -499,10 +511,14 @@
                 }
                 
                 try {
-                    socket.send(JSON.stringify({
+                    const messageData = {
                         type: 'message',
-                        content: message
-                    }));
+                        sender: nickname,
+                        content: message,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    socket.send(JSON.stringify(messageData));
                     messageInput.value = '';
                     
                     // Notifica que parou de digitar
@@ -559,6 +575,7 @@
                         try {
                             socket.send(JSON.stringify({
                                 type: 'nickname_change',
+                                oldNickname: oldNickname,
                                 newNickname: nickname
                             }));
                         } catch (error) {
