@@ -241,44 +241,40 @@
             const reconnectDelay = 3000; // 3 segundos
             
             // Simulando um servidor WebSocket simples em memória
-            // (Em uma aplicação real, isso seria um servidor separado)
             const mockServer = {
                 clients: [],
                 messages: [],
                 typingUsers: new Set(),
                 
-                // Simula o envio de mensagem para todos os clientes
                 broadcast: function(message) {
                     this.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
-                            client.send(JSON.stringify(message));
+                            client.onmessage({ data: JSON.stringify(message) });
                         }
                     });
                 },
                 
-                // Adiciona um novo cliente
                 addClient: function(ws) {
                     this.clients.push(ws);
                     
                     // Envia histórico de mensagens para o novo cliente
                     if (this.messages.length > 0) {
-                        ws.send(JSON.stringify({
-                            type: 'history',
-                            messages: this.messages.slice(-50) // Últimas 50 mensagens
-                        }));
+                        ws.onmessage({ 
+                            data: JSON.stringify({
+                                type: 'history',
+                                messages: this.messages.slice(-50)
+                            }) 
+                        });
                     }
                     
-                    // Atualiza lista de usuários para todos
                     this.updateUserList();
                 },
                 
-                // Remove um cliente
                 removeClient: function(ws) {
                     this.clients = this.clients.filter(client => client !== ws);
                     this.updateUserList();
                 },
                 
-                // Atualiza lista de usuários para todos
                 updateUserList: function() {
                     const userList = Array.from(new Set(this.clients
                         .filter(client => client.nickname)
@@ -290,7 +286,6 @@
                     });
                 },
                 
-                // Adiciona uma nova mensagem ao histórico
                 addMessage: function(message) {
                     this.messages.push(message);
                     this.broadcast({
@@ -301,7 +296,6 @@
                     });
                 },
                 
-                // Atualiza quem está digitando
                 updateTyping: function(nickname, isTyping) {
                     if (isTyping) {
                         this.typingUsers.add(nickname);
@@ -340,9 +334,6 @@
             
             // Função para conectar ao WebSocket
             function connectWebSocket() {
-                // Em uma aplicação real, substitua por seu próprio servidor WebSocket
-                // Aqui estamos simulando um servidor WebSocket em memória
-                
                 updateConnectionStatus('reconnecting');
                 
                 try {
@@ -352,28 +343,22 @@
                         nickname: null,
                         
                         send: function(data) {
-                            // Simula o recebimento de mensagem do servidor
-                            setTimeout(() => {
-                                if (typeof this.onmessage === 'function') {
-                                    const msg = JSON.parse(data);
-                                    
-                                    // Processa diferentes tipos de mensagens
-                                    if (msg.type === 'register') {
-                                        this.nickname = msg.nickname;
-                                        mockServer.addClient(this);
-                                    } 
-                                    else if (msg.type === 'message') {
-                                        mockServer.addMessage(msg);
-                                    }
-                                    else if (msg.type === 'typing') {
-                                        mockServer.updateTyping(msg.sender, msg.isTyping);
-                                    }
-                                    else if (msg.type === 'nickname_change') {
-                                        this.nickname = msg.newNickname;
-                                        mockServer.updateUserList();
-                                    }
-                                }
-                            }, 100);
+                            const msg = JSON.parse(data);
+                            
+                            if (msg.type === 'register') {
+                                this.nickname = msg.nickname;
+                                mockServer.addClient(this);
+                            } 
+                            else if (msg.type === 'message') {
+                                mockServer.addMessage(msg);
+                            }
+                            else if (msg.type === 'typing') {
+                                mockServer.updateTyping(msg.sender, msg.isTyping);
+                            }
+                            else if (msg.type === 'nickname_change') {
+                                this.nickname = msg.newNickname;
+                                mockServer.updateUserList();
+                            }
                         },
                         
                         close: function() {
@@ -400,7 +385,6 @@
                                     break;
                                     
                                 case 'history':
-                                    // Limpa as mensagens atuais
                                     chatMessages.innerHTML = '';
                                     
                                     if (data.messages.length === 0) {
@@ -415,17 +399,9 @@
                                 case 'typing':
                                     updateTypingIndicator(data.users);
                                     break;
-                                    
-                                default:
-                                    if (data.sender && data.message) {
-                                        displayMessage(data.sender, data.message, false, data.timestamp);
-                                    }
                             }
                         } catch (error) {
                             console.error("Erro ao processar mensagem:", error);
-                            if (typeof event.data === 'string') {
-                                displayMessage('Servidor', event.data, true);
-                            }
                         }
                     };
                     
