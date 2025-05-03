@@ -240,6 +240,82 @@
             const maxReconnectAttempts = 5;
             const reconnectDelay = 3000; // 3 segundos
             
+            // Simulando um servidor WebSocket simples em memória
+            // (Em uma aplicação real, isso seria um servidor separado)
+            const mockServer = {
+                clients: [],
+                messages: [],
+                typingUsers: new Set(),
+                
+                // Simula o envio de mensagem para todos os clientes
+                broadcast: function(message) {
+                    this.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify(message));
+                        }
+                    });
+                },
+                
+                // Adiciona um novo cliente
+                addClient: function(ws) {
+                    this.clients.push(ws);
+                    
+                    // Envia histórico de mensagens para o novo cliente
+                    if (this.messages.length > 0) {
+                        ws.send(JSON.stringify({
+                            type: 'history',
+                            messages: this.messages.slice(-50) // Últimas 50 mensagens
+                        }));
+                    }
+                    
+                    // Atualiza lista de usuários para todos
+                    this.updateUserList();
+                },
+                
+                // Remove um cliente
+                removeClient: function(ws) {
+                    this.clients = this.clients.filter(client => client !== ws);
+                    this.updateUserList();
+                },
+                
+                // Atualiza lista de usuários para todos
+                updateUserList: function() {
+                    const userList = Array.from(new Set(this.clients
+                        .filter(client => client.nickname)
+                        .map(client => client.nickname)));
+                    
+                    this.broadcast({
+                        type: 'user_list',
+                        users: userList
+                    });
+                },
+                
+                // Adiciona uma nova mensagem ao histórico
+                addMessage: function(message) {
+                    this.messages.push(message);
+                    this.broadcast({
+                        type: 'message',
+                        sender: message.sender,
+                        content: message.content,
+                        timestamp: message.timestamp
+                    });
+                },
+                
+                // Atualiza quem está digitando
+                updateTyping: function(nickname, isTyping) {
+                    if (isTyping) {
+                        this.typingUsers.add(nickname);
+                    } else {
+                        this.typingUsers.delete(nickname);
+                    }
+                    
+                    this.broadcast({
+                        type: 'typing',
+                        users: Array.from(this.typingUsers).filter(u => u !== nickname)
+                    });
+                }
+            };
+            
             // Função para atualizar o status da conexão
             function updateConnectionStatus(status) {
                 connectionStatus.classList.remove('hidden', 'connected', 'disconnected', 'reconnecting');
@@ -264,32 +340,53 @@
             
             // Função para conectar ao WebSocket
             function connectWebSocket() {
-                // Usando um servidor WebSocket público para demonstração
-                // Em produção, substitua por seu próprio servidor WebSocket
-                const wsUri = "wss://ws.postman-echo.com/raw";
+                // Em uma aplicação real, substitua por seu próprio servidor WebSocket
+                // Aqui estamos simulando um servidor WebSocket em memória
                 
                 updateConnectionStatus('reconnecting');
                 
                 try {
-                    socket = new WebSocket(wsUri);
-                    
-                    socket.onopen = function(e) {
-                        console.log("Conexão WebSocket estabelecida");
-                        updateConnectionStatus('connected');
-                        reconnectAttempts = 0;
+                    // Criando um WebSocket "mockado" para simular o comportamento do servidor
+                    const ws = {
+                        readyState: WebSocket.OPEN,
+                        nickname: null,
                         
-                        // Registra o usuário no servidor
-                        if (nickname) {
-                            const registerMsg = {
-                                type: 'register',
-                                nickname: nickname,
-                                timestamp: new Date().toISOString()
-                            };
-                            socket.send(JSON.stringify(registerMsg));
+                        send: function(data) {
+                            // Simula o recebimento de mensagem do servidor
+                            setTimeout(() => {
+                                if (typeof this.onmessage === 'function') {
+                                    const msg = JSON.parse(data);
+                                    
+                                    // Processa diferentes tipos de mensagens
+                                    if (msg.type === 'register') {
+                                        this.nickname = msg.nickname;
+                                        mockServer.addClient(this);
+                                    } 
+                                    else if (msg.type === 'message') {
+                                        mockServer.addMessage(msg);
+                                    }
+                                    else if (msg.type === 'typing') {
+                                        mockServer.updateTyping(msg.sender, msg.isTyping);
+                                    }
+                                    else if (msg.type === 'nickname_change') {
+                                        this.nickname = msg.newNickname;
+                                        mockServer.updateUserList();
+                                    }
+                                }
+                            }, 100);
+                        },
+                        
+                        close: function() {
+                            this.readyState = WebSocket.CLOSED;
+                            mockServer.removeClient(this);
+                            if (typeof this.onclose === 'function') {
+                                this.onclose({wasClean: true});
+                            }
                         }
                     };
                     
-                    socket.onmessage = function(event) {
+                    // Configura os callbacks
+                    ws.onmessage = function(event) {
                         try {
                             const data = JSON.parse(event.data);
                             
@@ -298,10 +395,20 @@
                                     displayMessage(data.sender, data.content, false, data.timestamp);
                                     break;
                                     
-                                case 'system':
-                                    displayMessage('Sistema', data.content, true);
-                                    if (data.users) {
-                                        updateUsersList(data.users);
+                                case 'user_list':
+                                    updateUsersList(data.users);
+                                    break;
+                                    
+                                case 'history':
+                                    // Limpa as mensagens atuais
+                                    chatMessages.innerHTML = '';
+                                    
+                                    if (data.messages.length === 0) {
+                                        chatMessages.innerHTML = '<div class="text-center text-gray-500 py-4"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+                                    } else {
+                                        data.messages.forEach(msg => {
+                                            displayMessage(msg.sender, msg.content, false, msg.timestamp);
+                                        });
                                     }
                                     break;
                                     
@@ -309,27 +416,20 @@
                                     updateTypingIndicator(data.users);
                                     break;
                                     
-                                case 'ping':
-                                    // Responde ao ping do servidor
-                                    socket.send(JSON.stringify({ type: 'pong' }));
-                                    break;
-                                    
                                 default:
-                                    // Trata mensagens recebidas de outros usuários
                                     if (data.sender && data.message) {
                                         displayMessage(data.sender, data.message, false, data.timestamp);
                                     }
                             }
                         } catch (error) {
                             console.error("Erro ao processar mensagem:", error);
-                            // Se não for JSON, trata como mensagem simples
                             if (typeof event.data === 'string') {
                                 displayMessage('Servidor', event.data, true);
                             }
                         }
                     };
                     
-                    socket.onclose = function(event) {
+                    ws.onclose = function(event) {
                         if (event.wasClean) {
                             console.log(`Conexão fechada limpa, código=${event.code} motivo=${event.reason}`);
                             updateConnectionStatus('disconnected');
@@ -337,7 +437,6 @@
                             console.log('Conexão perdida');
                             updateConnectionStatus('disconnected');
                             
-                            // Tenta reconectar
                             if (reconnectAttempts < maxReconnectAttempts) {
                                 reconnectAttempts++;
                                 console.log(`Tentando reconectar (tentativa ${reconnectAttempts} de ${maxReconnectAttempts})...`);
@@ -349,10 +448,19 @@
                         }
                     };
                     
-                    socket.onerror = function(error) {
-                        console.error("Erro no WebSocket:", error);
-                        updateConnectionStatus('disconnected');
-                    };
+                    socket = ws;
+                    updateConnectionStatus('connected');
+                    reconnectAttempts = 0;
+                    
+                    // Registra o usuário no servidor
+                    if (nickname) {
+                        socket.send(JSON.stringify({
+                            type: 'register',
+                            nickname: nickname,
+                            timestamp: new Date().toISOString()
+                        }));
+                    }
+                    
                 } catch (error) {
                     console.error("Erro ao conectar ao WebSocket:", error);
                     updateConnectionStatus('disconnected');
@@ -362,20 +470,6 @@
                         setTimeout(connectWebSocket, reconnectDelay);
                     }
                 }
-            }
-            
-            // Função para verificar periodicamente a conexão
-            function startConnectionMonitor() {
-                setInterval(() => {
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        // Envia um ping para manter a conexão ativa
-                        try {
-                            socket.send(JSON.stringify({ type: 'ping' }));
-                        } catch (error) {
-                            console.error("Erro ao enviar ping:", error);
-                        }
-                    }
-                }, 30000); // A cada 30 segundos
             }
             
             // Função para mostrar mensagem no chat
@@ -551,9 +645,6 @@
                 
                 // Conecta ao WebSocket
                 connectWebSocket();
-                
-                // Inicia o monitor de conexão
-                startConnectionMonitor();
                 
                 // Foca no campo de mensagem
                 messageInput.focus();
