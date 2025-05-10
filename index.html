@@ -278,6 +278,37 @@
             background-color: #10b981;
             color: white;
         }
+        
+        /* Estilo para mensagens de diferentes usuários */
+        .message-user-1 {
+            background-color: #e0f2fe;
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .message-user-2 {
+            background-color: #ecfdf5;
+            border-left: 4px solid #10b981;
+        }
+        
+        .message-user-3 {
+            background-color: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .message-user-4 {
+            background-color: #f5f3ff;
+            border-left: 4px solid #8b5cf6;
+        }
+        
+        .message-user-5 {
+            background-color: #fff7ed;
+            border-left: 4px solid #f97316;
+        }
+        
+        .message-current-user {
+            background-color: #4f46e5;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
@@ -517,7 +548,8 @@
                         this.partitions[partitionName] = {
                             clients: [], // Note: clients não são persistidos
                             messages: [],
-                            typingUsers: new Set()
+                            typingUsers: new Set(),
+                            userColors: {} // Mapeia nicknames para cores de mensagem
                         };
                         saveState();
                     }
@@ -540,12 +572,29 @@
                     
                     this.partitions[partitionName].clients.push(ws);
                     
+                    // Atribui uma cor única para o usuário se ainda não tiver
+                    if (!this.partitions[partitionName].userColors[ws.nickname]) {
+                        const colorClasses = ['message-user-1', 'message-user-2', 'message-user-3', 'message-user-4', 'message-user-5'];
+                        const usedColors = Object.values(this.partitions[partitionName].userColors);
+                        const availableColors = colorClasses.filter(c => !usedColors.includes(c));
+                        
+                        if (availableColors.length > 0) {
+                            this.partitions[partitionName].userColors[ws.nickname] = availableColors[0];
+                        } else {
+                            // Se todas as cores estiverem em uso, reutiliza
+                            this.partitions[partitionName].userColors[ws.nickname] = 
+                                colorClasses[Object.keys(this.partitions[partitionName].userColors).length % colorClasses.length];
+                        }
+                        saveState();
+                    }
+                    
                     // Envia histórico de mensagens para o novo cliente
                     if (this.partitions[partitionName].messages.length > 0) {
                         ws.onmessage({ 
                             data: JSON.stringify({
                                 type: 'history',
-                                messages: this.partitions[partitionName].messages.slice(-50)
+                                messages: this.partitions[partitionName].messages.slice(-50),
+                                userColors: this.partitions[partitionName].userColors
                             })
                         });
                     }
@@ -603,7 +652,8 @@
                         id: messageId,
                         sender: message.sender,
                         content: message.content,
-                        timestamp: message.timestamp
+                        timestamp: message.timestamp,
+                        colorClass: this.partitions[partitionName].userColors[message.sender] || 'message-user-1'
                     });
                     
                     return messageId;
@@ -622,6 +672,13 @@
                         type: 'typing',
                         users: Array.from(this.partitions[partitionName].typingUsers)
                     });
+                },
+                
+                getUserColor: function(partitionName, nickname) {
+                    if (!this.partitions[partitionName] || !this.partitions[partitionName].userColors) {
+                        return 'message-user-1';
+                    }
+                    return this.partitions[partitionName].userColors[nickname] || 'message-user-1';
                 }
             };
         })();
@@ -751,6 +808,15 @@
                             else if (msg.type === 'nickname_change') {
                                 const oldNickname = this.nickname;
                                 this.nickname = msg.newNickname;
+                                
+                                // Atualiza a cor do usuário se necessário
+                                const userColors = window.mockServer.partitions[partitionName]?.userColors || {};
+                                if (userColors[oldNickname] && !userColors[msg.newNickname]) {
+                                    userColors[msg.newNickname] = userColors[oldNickname];
+                                    delete userColors[oldNickname];
+                                    localStorage.setItem('mockServerData', JSON.stringify(window.mockServer.partitions));
+                                }
+                                
                                 window.mockServer.broadcast(partitionName, {
                                     type: 'system_message',
                                     content: `${oldNickname} mudou para ${this.nickname}`,
@@ -780,7 +846,14 @@
                                     // Só exibe a mensagem se não for do usuário atual
                                     // (pois já foi exibida quando enviada)
                                     if (data.sender !== nickname) {
-                                        displayMessage(data.sender, data.content, false, data.timestamp, data.id);
+                                        displayMessage(
+                                            data.sender, 
+                                            data.content, 
+                                            false, 
+                                            data.timestamp, 
+                                            data.id,
+                                            data.colorClass
+                                        );
                                     }
                                     break;
                                     
@@ -797,7 +870,17 @@
                                         data.messages.forEach(msg => {
                                             // Verifica se a mensagem é do usuário atual
                                             const isCurrentUser = msg.sender === nickname;
-                                            displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp, msg.id);
+                                            const colorClass = data.userColors?.[msg.sender] || 
+                                                window.mockServer.getUserColor(partitionName, msg.sender);
+                                            
+                                            displayMessage(
+                                                msg.sender, 
+                                                msg.content, 
+                                                isCurrentUser, 
+                                                msg.timestamp, 
+                                                msg.id,
+                                                colorClass
+                                            );
                                         });
                                     }
                                     break;
@@ -854,7 +937,6 @@
                             timestamp: new Date().toISOString()
                         }));
                     }
-                    
                 } catch (error) {
                     console.error("Erro ao conectar ao WebSocket:", error);
                     updateConnectionStatus('disconnected');
@@ -867,7 +949,7 @@
             }
             
             // Função para mostrar mensagem no chat
-            function displayMessage(sender, message, isCurrentUser = false, timestamp = null, messageId = null) {
+            function displayMessage(sender, message, isCurrentUser = false, timestamp = null, messageId = null, colorClass = null) {
                 // Verifica se a mensagem já existe (para evitar duplicação)
                 if (messageId && document.querySelector(`[data-message-id="${messageId}"]`)) {
                     return;
@@ -880,7 +962,9 @@
                 }
                 
                 const messageContainer = document.createElement('div');
-                messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${isCurrentUser ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-800'}`;
+                messageContainer.className = `inline-block max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg px-4 py-2 ${
+                    isCurrentUser ? 'message-current-user' : (colorClass || 'message-user-1')
+                } ${isCurrentUser ? 'text-white' : 'text-gray-800'}`;
                 
                 // Adiciona avatar (simplificado)
                 const avatar = document.createElement('div');
@@ -926,6 +1010,13 @@
                 
                 // Adiciona mensagem ao chat
                 messageDiv.appendChild(messageContainer);
+                
+                // Remove a mensagem de "chat vazio" se existir
+                const emptyChat = chatMessages.querySelector('.empty-chat');
+                if (emptyChat) {
+                    emptyChat.remove();
+                }
+                
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
@@ -1062,7 +1153,7 @@
                 shareModal.classList.remove('hidden');
             }
             
-            // Verifica se já existe uma partição na URL
+            // Verifica se há partição na URL ao carregar a página
             function checkUrlForPartition() {
                 const pathParts = window.location.pathname.split('/');
                 const lastPart = pathParts[pathParts.length - 1];
@@ -1114,8 +1205,8 @@
                     return;
                 }
                 
-                if (!isValidPartitionName(newPartition)) {
-                    showNotification('Use apenas letras, números e hífens no nome da partição.');
+                if (!isValidPartitionName(newPartition) || newPartition.includes(' ')) {
+                    showNotification('Use apenas letras, números e hífens no nome da partição (sem espaços).');
                     return;
                 }
                 
@@ -1144,8 +1235,8 @@
                     return;
                 }
                 
-                if (!isValidPartitionName(existingPartition)) {
-                    showNotification('Use apenas letras, números e hífens no nome da partição.');
+                if (!isValidPartitionName(existingPartition) || existingPartition.includes(' ')) {
+                    showNotification('Use apenas letras, números e hífens no nome da partição (sem espaços).');
                     return;
                 }
                 
