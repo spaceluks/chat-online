@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Colaborativo | Plataforma Online</title>
+    <title>Chat Colaborativo Instantâneo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -178,65 +178,6 @@
             border-radius: 0 4px 4px 0;
         }
         
-        .message-reactions {
-            display: flex;
-            gap: 4px;
-            margin-top: 4px;
-        }
-        
-        .reaction-btn {
-            background: rgba(0,0,0,0.05);
-            border-radius: 12px;
-            padding: 2px 6px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .reaction-btn:hover {
-            background: rgba(0,0,0,0.1);
-            transform: scale(1.1);
-        }
-        
-        .reaction-btn.active {
-            background: #3b82f6;
-            color: white;
-        }
-        
-        .message-menu {
-            position: absolute;
-            right: 0;
-            top: 0;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-        
-        .message-container:hover .message-menu {
-            opacity: 1;
-        }
-        
-        .message-options {
-            background: white;
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 4px 0;
-            min-width: 120px;
-        }
-        
-        .message-option {
-            padding: 6px 12px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .message-option:hover {
-            background: #f3f4f6;
-        }
-        
-        .message-option.delete {
-            color: #ef4444;
-        }
-        
         .avatar {
             width: 32px;
             height: 32px;
@@ -296,129 +237,12 @@
             border-radius: 9999px;
         }
         
-        .reaction-picker {
-            position: absolute;
-            bottom: 100%;
-            right: 0;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            padding: 8px;
-            display: none;
-            z-index: 100;
-        }
-        
-        .reaction-picker.show {
-            display: block;
-            animation: fadeIn 0.2s ease-out;
-        }
-        
-        .reaction-option {
-            font-size: 20px;
-            padding: 4px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .reaction-option:hover {
-            transform: scale(1.2);
-        }
-        
-        .message-reply {
-            border-left: 3px solid #4f46e5;
-            padding-left: 8px;
-            margin-bottom: 4px;
-            font-size: 0.85em;
-            color: #6b7280;
-        }
-        
-        .reply-info {
-            font-size: 0.75rem;
-            color: #9ca3af;
-            margin-bottom: 4px;
-        }
-        
-        .reply-btn {
-            color: #4f46e5;
-            font-size: 0.75rem;
-            cursor: pointer;
-        }
-        
-        .reply-cancel {
-            color: #ef4444;
-            font-size: 0.75rem;
-            cursor: pointer;
-            margin-left: 8px;
-        }
-        
-        /* Novos estilos para a seleção de partição */
-        .partition-card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: all 0.2s ease;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-        
-        .partition-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-        }
-        
-        .partition-card.selected {
-            border-color: #4f46e5;
-            background-color: #f5f3ff;
-        }
-        
-        .partition-card .user-count {
-            font-size: 0.75rem;
-            color: #6b7280;
-        }
-        
-        .partition-card .partition-name {
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        
-        .partition-card .partition-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 8px;
-        }
-        
-        .new-partition-input {
+        .partition-input {
             transition: all 0.3s ease;
-            max-height: 0;
-            overflow: hidden;
         }
         
-        .new-partition-input.show {
-            max-height: 100px;
-            margin-top: 12px;
-        }
-        
-        .tab-button {
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-        
-        .tab-button.active {
-            background-color: #4f46e5;
-            color: white;
-        }
-        
-        .tab-button:not(.active):hover {
-            background-color: #eef2ff;
+        .partition-input:focus {
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
         }
     </style>
 </head>
@@ -431,41 +255,28 @@
         </div>
     </div>
 
-    <!-- Modal de entrada -->
+    <!-- Modal de entrada simplificado -->
     <div id="entry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="entry-modal bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
             <div class="text-center mb-6">
                 <div class="mx-auto w-20 h-20 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
                     <i class="fas fa-comments text-white text-3xl"></i>
                 </div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Bem-vindo ao Chat</h2>
-                <p class="text-gray-600">Conecte-se e colabore em tempo real com sua equipe</p>
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Chat Instantâneo</h2>
+                <p class="text-gray-600">Digite o nome da partição para começar a conversar</p>
             </div>
             
             <div class="mb-6">
                 <label for="nickname-input" class="block text-sm font-medium text-gray-700 mb-2">Seu nickname</label>
-                <input type="text" id="nickname-input" placeholder="Digite como quer ser chamado"
+                <input type="text" id="nickname-input" placeholder="Como quer ser chamado?"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
             </div>
             
             <div class="mb-6">
-                <div class="flex border-b border-gray-200 mb-4">
-                    <button id="join-tab" class="tab-button active mr-2">Entrar em uma partição</button>
-                    <button id="create-tab" class="tab-button">Criar nova partição</button>
-                </div>
-                
-                <div id="join-section">
-                    <label for="partition-select" class="block text-sm font-medium text-gray-700 mb-2">Escolha uma partição</label>
-                    <div id="partitions-list" class="grid grid-cols-2 gap-3 mb-3">
-                        <!-- Partições serão adicionadas dinamicamente aqui -->
-                    </div>
-                </div>
-                
-                <div id="create-section" class="hidden">
-                    <label for="new-partition-input" class="block text-sm font-medium text-gray-700 mb-2">Nome da nova partição</label>
-                    <input type="text" id="new-partition-input" placeholder="Digite o nome da partição"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                </div>
+                <label for="partition-input" class="block text-sm font-medium text-gray-700 mb-2">Nome da partição</label>
+                <input type="text" id="partition-input" placeholder="Digite o nome da partição"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg partition-input focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                <p class="text-xs text-gray-500 mt-1">Se a partição não existir, será criada automaticamente</p>
             </div>
             
             <div class="flex flex-col space-y-3">
@@ -473,10 +284,6 @@
                     <i class="fas fa-sign-in-alt mr-2"></i>
                     Entrar no Chat
                 </button>
-                
-                <div class="text-center text-sm text-gray-500 mt-4">
-                    Ao entrar, você concorda com nossos <a href="#" class="text-indigo-600 hover:underline">Termos de Serviço</a>
-                </div>
             </div>
         </div>
     </div>
@@ -490,7 +297,7 @@
                     <i class="fas fa-comments"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold" id="chat-title">Chat Colaborativo</h1>
+                    <h1 class="text-xl font-bold" id="chat-title">Chat Instantâneo</h1>
                     <p class="text-sm opacity-80">Conectado como: <span id="current-nickname" class="font-semibold"></span></p>
                     <p class="text-xs opacity-80">Partição: <span id="current-partition" class="font-semibold"></span></p>
                 </div>
@@ -527,19 +334,6 @@
             </div>
         </div>
 
-        <!-- Área de resposta -->
-        <div id="reply-preview" class="hidden bg-gray-50 border-t border-gray-200 px-4 py-2">
-            <div class="flex justify-between items-center">
-                <div>
-                    <span class="reply-info">Respondendo a <span id="reply-to-user"></span></span>
-                    <div id="reply-preview-content" class="message-reply truncate max-w-xs"></div>
-                </div>
-                <button id="cancel-reply-btn" class="reply-cancel">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-
         <!-- Indicador de digitação -->
         <div id="typing-indicator" class="hidden bg-white px-4 py-2 border-t border-gray-200">
             <div class="text-sm text-gray-500 italic">
@@ -563,14 +357,6 @@
             </div>
             <div class="mt-2 flex justify-between text-xs text-gray-500">
                 <p>Pressione Enter para enviar</p>
-                <div class="flex space-x-2">
-                    <button id="emoji-btn" class="text-gray-500 hover:text-indigo-600 transition duration-200">
-                        <i class="far fa-smile"></i>
-                    </button>
-                    <button id="gif-btn" class="text-gray-500 hover:text-indigo-600 transition duration-200">
-                        <i class="fas fa-photo-film"></i>
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -581,59 +367,17 @@
         <span id="status-text">Desconectado</span>
     </div>
 
-    <!-- Emoji Picker (simplificado) -->
-    <div id="emoji-picker" class="hidden bg-white border border-gray-200 rounded-lg p-2 absolute bottom-16 right-4 w-64 h-40 overflow-y-auto">
-        <div class="grid grid-cols-8 gap-1">
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😀</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😂</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😍</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🤔</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😎</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🙌</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">👍</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">👏</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">❤️</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🔥</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🎉</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">💯</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">🤣</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😊</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😢</span>
-            <span class="emoji-option text-xl cursor-pointer hover:bg-gray-100 rounded p-1">😴</span>
-        </div>
-    </div>
-
     <script>
         // Objeto global para simular o servidor
         window.mockServer = {
-            partitions: {
-                'geral': {
-                    clients: [],
-                    messages: [],
-                    typingUsers: new Set(),
-                    messageReactions: {}
-                },
-                'tech': {
-                    clients: [],
-                    messages: [],
-                    typingUsers: new Set(),
-                    messageReactions: {}
-                },
-                'games': {
-                    clients: [],
-                    messages: [],
-                    typingUsers: new Set(),
-                    messageReactions: {}
-                }
-            },
+            partitions: {},
             
             addPartition: function(partitionName) {
                 if (!this.partitions[partitionName]) {
                     this.partitions[partitionName] = {
                         clients: [],
                         messages: [],
-                        typingUsers: new Set(),
-                        messageReactions: {}
+                        typingUsers: new Set()
                     };
                 }
             },
@@ -658,8 +402,7 @@
                     ws.onmessage({ 
                         data: JSON.stringify({
                             type: 'history',
-                            messages: this.partitions[partitionName].messages.slice(-50),
-                            reactions: this.partitions[partitionName].messageReactions
+                            messages: this.partitions[partitionName].messages.slice(-50)
                         })
                     });
                 }
@@ -716,8 +459,7 @@
                     id: messageId,
                     sender: message.sender,
                     content: message.content,
-                    timestamp: message.timestamp,
-                    replyTo: message.replyTo || null
+                    timestamp: message.timestamp
                 });
                 
                 return messageId;
@@ -736,42 +478,6 @@
                     type: 'typing',
                     users: Array.from(this.partitions[partitionName].typingUsers)
                 });
-            },
-            
-            addReaction: function(partitionName, messageId, reaction, nickname) {
-                if (!this.partitions[partitionName]) return;
-                
-                if (!this.partitions[partitionName].messageReactions[messageId]) {
-                    this.partitions[partitionName].messageReactions[messageId] = {};
-                }
-                
-                if (!this.partitions[partitionName].messageReactions[messageId][reaction]) {
-                    this.partitions[partitionName].messageReactions[messageId][reaction] = new Set();
-                }
-                
-                // Remove any existing reaction from this user for this message
-                for (const r in this.partitions[partitionName].messageReactions[messageId]) {
-                    this.partitions[partitionName].messageReactions[messageId][r].delete(nickname);
-                    if (this.partitions[partitionName].messageReactions[messageId][r].size === 0) {
-                        delete this.partitions[partitionName].messageReactions[messageId][r];
-                    }
-                }
-                
-                // Add new reaction
-                this.partitions[partitionName].messageReactions[messageId][reaction].add(nickname);
-                
-                this.broadcast(partitionName, {
-                    type: 'reaction',
-                    messageId: messageId,
-                    reactions: this.partitions[partitionName].messageReactions[messageId]
-                });
-            },
-            
-            getPartitionList: function() {
-                return Object.keys(this.partitions).map(partitionName => ({
-                    name: partitionName,
-                    userCount: this.partitions[partitionName].clients.length
-                }));
             }
         };
 
@@ -780,6 +486,7 @@
             const entryModal = document.getElementById('entry-modal');
             const chatContainer = document.getElementById('chat-container');
             const nicknameInput = document.getElementById('nickname-input');
+            const partitionInput = document.getElementById('partition-input');
             const enterChatBtn = document.getElementById('enter-chat-btn');
             const currentNickname = document.getElementById('current-nickname');
             const currentPartition = document.getElementById('current-partition');
@@ -798,19 +505,7 @@
             const statusText = document.getElementById('status-text');
             const notification = document.getElementById('notification');
             const notificationText = document.getElementById('notification-text');
-            const emojiBtn = document.getElementById('emoji-btn');
-            const emojiPicker = document.getElementById('emoji-picker');
-            const replyPreview = document.getElementById('reply-preview');
-            const replyToUser = document.getElementById('reply-to-user');
-            const replyPreviewContent = document.getElementById('reply-preview-content');
-            const cancelReplyBtn = document.getElementById('cancel-reply-btn');
             const chatTitle = document.getElementById('chat-title');
-            const joinTab = document.getElementById('join-tab');
-            const createTab = document.getElementById('create-tab');
-            const joinSection = document.getElementById('join-section');
-            const createSection = document.getElementById('create-section');
-            const partitionsList = document.getElementById('partitions-list');
-            const newPartitionInput = document.getElementById('new-partition-input');
             
             // Variáveis de estado
             let nickname = '';
@@ -822,9 +517,6 @@
             let reconnectAttempts = 0;
             const maxReconnectAttempts = 5;
             const reconnectDelay = 3000; // 3 segundos
-            let currentReply = null;
-            let messageMenuOpen = null;
-            let selectedPartition = null;
             
             // Função para mostrar notificação
             function showNotification(message, duration = 3000) {
@@ -882,14 +574,13 @@
                                 const messageData = {
                                     sender: this.nickname,
                                     content: msg.content,
-                                    timestamp: new Date().toISOString(),
-                                    replyTo: msg.replyTo || null
+                                    timestamp: new Date().toISOString()
                                 };
                                 
                                 const messageId = window.mockServer.addMessage(partitionName, messageData);
                                 
                                 // Exibe a mensagem localmente como "enviada"
-                                displayMessage(this.nickname, msg.content, true, new Date().toISOString(), messageId, msg.replyTo);
+                                displayMessage(this.nickname, msg.content, true, new Date().toISOString(), messageId);
                             }
                             else if (msg.type === 'typing') {
                                 window.mockServer.updateTyping(partitionName, msg.sender, msg.isTyping);
@@ -904,9 +595,6 @@
                                 });
                                 window.mockServer.updateUserList(partitionName);
                                 showNotification(`Seu nickname foi alterado para ${this.nickname}`);
-                            }
-                            else if (msg.type === 'reaction') {
-                                window.mockServer.addReaction(partitionName, msg.messageId, msg.reaction, this.nickname);
                             }
                         },
                         
@@ -929,7 +617,7 @@
                                     // Só exibe a mensagem se não for do usuário atual
                                     // (pois já foi exibida quando enviada)
                                     if (data.sender !== nickname) {
-                                        displayMessage(data.sender, data.content, false, data.timestamp, data.id, data.replyTo);
+                                        displayMessage(data.sender, data.content, false, data.timestamp, data.id);
                                     }
                                     break;
                                     
@@ -946,18 +634,8 @@
                                         data.messages.forEach(msg => {
                                             // Verifica se a mensagem é do usuário atual
                                             const isCurrentUser = msg.sender === nickname;
-                                            displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp, msg.id, msg.replyTo);
+                                            displayMessage(msg.sender, msg.content, isCurrentUser, msg.timestamp, msg.id);
                                         });
-                                    }
-                                    
-                                    // Aplica reações às mensagens
-                                    if (data.reactions) {
-                                        for (const messageId in data.reactions) {
-                                            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                                            if (messageElement) {
-                                                updateMessageReactions(messageElement, data.reactions[messageId]);
-                                            }
-                                        }
                                     }
                                     break;
                                     
@@ -975,13 +653,6 @@
                                     
                                 case 'user_leave':
                                     displayLeaveMessage(data.nickname, data.timestamp);
-                                    break;
-                                    
-                                case 'reaction':
-                                    const messageElement = document.querySelector(`[data-message-id="${data.messageId}"]`);
-                                    if (messageElement) {
-                                        updateMessageReactions(messageElement, data.reactions);
-                                    }
                                     break;
                             }
                         } catch (error) {
@@ -1033,7 +704,7 @@
             }
             
             // Função para mostrar mensagem no chat
-            function displayMessage(sender, message, isCurrentUser = false, timestamp = null, messageId = null, replyTo = null) {
+            function displayMessage(sender, message, isCurrentUser = false, timestamp = null, messageId = null) {
                 // Verifica se a mensagem já existe (para evitar duplicação)
                 if (messageId && document.querySelector(`[data-message-id="${messageId}"]`)) {
                     return;
@@ -1081,81 +752,19 @@
                 timestampSpan.className = 'text-xs opacity-75 mt-1';
                 timestampSpan.textContent = new Date(timestamp).toLocaleTimeString();
                 
-                // Resposta a uma mensagem
-                if (replyTo) {
-                    const replyInfo = document.createElement('div');
-                    replyInfo.className = 'message-reply mb-1';
-                    replyInfo.textContent = `Respondendo a ${replyTo.sender}: ${replyTo.content}`;
-                    textContainer.appendChild(replyInfo);
-                }
-                
                 // Adiciona elementos ao container de texto
                 textContainer.appendChild(nicknameSpan);
                 textContainer.appendChild(messageContent);
                 textContainer.appendChild(timestampSpan);
                 
-                // Botões de reação e menu
-                const reactionButtons = document.createElement('div');
-                reactionButtons.className = 'message-reactions mt-1';
-                reactionButtons.innerHTML = `
-                    <button class="reaction-btn" data-reaction="👍">👍</button>
-                    <button class="reaction-btn" data-reaction="😂">😂</button>
-                    <button class="reaction-btn" data-reaction="❤️">❤️</button>
-                `;
-                
-                const messageMenu = document.createElement('div');
-                messageMenu.className = 'message-menu';
-                messageMenu.innerHTML = `
-                    <div class="message-options">
-                        <div class="message-option reply">Responder</div>
-                        <div class="message-option delete">Excluir</div>
-                    </div>
-                `;
-                
-                // Adiciona eventos aos botões de reação
-                reactionButtons.querySelectorAll('.reaction-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        if (socket) {
-                            socket.send(JSON.stringify({
-                                type: 'reaction',
-                                messageId: messageId,
-                                reaction: btn.getAttribute('data-reaction')
-                            }));
-                        }
-                    });
-                });
-                
-                // Adiciona evento ao menu de opções da mensagem
-                messageMenu.querySelector('.reply').addEventListener('click', () => {
-                    currentReply = { id: messageId, sender: sender, content: message };
-                    updateReplyPreview();
-                });
-                
-                messageMenu.querySelector('.delete').addEventListener('click', () => {
-                    // Implementar exclusão de mensagem (opcional)
-                });
-                
                 // Adiciona elementos ao container de mensagem
                 contentContainer.appendChild(textContainer);
                 messageContainer.appendChild(contentContainer);
-                messageContainer.appendChild(reactionButtons);
-                messageContainer.appendChild(messageMenu);
                 
                 // Adiciona mensagem ao chat
                 messageDiv.appendChild(messageContainer);
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-            
-            // Função para atualizar reações de uma mensagem
-            function updateMessageReactions(messageElement, reactions) {
-                const reactionButtons = messageElement.querySelector('.message-reactions');
-                reactionButtons.querySelectorAll('.reaction-btn').forEach(btn => {
-                    const reaction = btn.getAttribute('data-reaction');
-                    const usersReacted = reactions[reaction] ? Array.from(reactions[reaction]) : [];
-                    btn.textContent = `${reaction} ${usersReacted.length}`;
-                    btn.classList.toggle('active', usersReacted.includes(nickname));
-                });
             }
             
             // Função para mostrar mensagem de sistema
@@ -1236,75 +845,19 @@
                 typingUsers.textContent = formattedText;
             }
             
-            // Função para atualizar visualização de resposta
-            function updateReplyPreview() {
-                if (currentReply) {
-                    replyPreview.classList.remove('hidden');
-                    replyToUser.textContent = currentReply.sender;
-                    replyPreviewContent.textContent = currentReply.content;
-                } else {
-                    replyPreview.classList.add('hidden');
-                }
-            }
-            
-            // Função para renderizar a lista de partições
-            function renderPartitionsList() {
-                partitionsList.innerHTML = '';
-                const partitions = window.mockServer.getPartitionList();
-                
-                partitions.forEach(partition => {
-                    const partitionCard = document.createElement('div');
-                    partitionCard.className = 'partition-card';
-                    if (selectedPartition === partition.name) {
-                        partitionCard.classList.add('selected');
-                    }
-                    partitionCard.innerHTML = `
-                        <div class="partition-icon">
-                            <i class="fas fa-hashtag"></i>
-                        </div>
-                        <div class="partition-name">${partition.name}</div>
-                        <div class="user-count">${partition.userCount} usuário(s)</div>
-                    `;
-                    
-                    partitionCard.addEventListener('click', () => {
-                        document.querySelectorAll('.partition-card').forEach(card => {
-                            card.classList.remove('selected');
-                        });
-                        partitionCard.classList.add('selected');
-                        selectedPartition = partition.name;
-                    });
-                    
-                    partitionsList.appendChild(partitionCard);
-                });
-            }
-            
             // Evento de entrada no chat
             enterChatBtn.addEventListener('click', () => {
                 nickname = nicknameInput.value.trim();
+                partitionName = partitionInput.value.trim();
                 
                 if (!nickname) {
                     showNotification('Por favor, digite um nickname.');
                     return;
                 }
                 
-                if (joinSection.classList.contains('hidden')) {
-                    // Modo de criação de nova partição
-                    partitionName = newPartitionInput.value.trim();
-                    
-                    if (!partitionName) {
-                        showNotification('Por favor, digite um nome para a partição.');
-                        return;
-                    }
-                    
-                    // Adiciona a nova partição ao servidor
-                    window.mockServer.addPartition(partitionName);
-                } else {
-                    // Modo de entrar em partição existente
-                    if (!selectedPartition) {
-                        showNotification('Por favor, selecione uma partição.');
-                        return;
-                    }
-                    partitionName = selectedPartition;
+                if (!partitionName) {
+                    showNotification('Por favor, digite o nome da partição.');
+                    return;
                 }
                 
                 entryModal.classList.add('hidden');
@@ -1315,22 +868,6 @@
                 chatTitle.textContent = `Chat - ${partitionName}`;
                 
                 connectWebSocket();
-            });
-            
-            // Evento de alternar entre abas
-            joinTab.addEventListener('click', () => {
-                joinTab.classList.add('active');
-                createTab.classList.remove('active');
-                joinSection.classList.remove('hidden');
-                createSection.classList.add('hidden');
-                renderPartitionsList();
-            });
-            
-            createTab.addEventListener('click', () => {
-                createTab.classList.add('active');
-                joinTab.classList.remove('active');
-                createSection.classList.remove('hidden');
-                joinSection.classList.add('hidden');
             });
             
             // Evento de envio de mensagem
@@ -1355,13 +892,8 @@
                     socket.send(JSON.stringify({
                         type: 'message',
                         content: messageContent,
-                        timestamp: new Date().toISOString(),
-                        replyTo: currentReply || null
+                        timestamp: new Date().toISOString()
                     }));
-                    
-                    // Limpa resposta
-                    currentReply = null;
-                    updateReplyPreview();
                 }
             }
             
@@ -1418,46 +950,8 @@
                 }, 2000);
             });
             
-            // Evento de cancelar resposta
-            cancelReplyBtn.addEventListener('click', () => {
-                currentReply = null;
-                updateReplyPreview();
-            });
-            
-            // Evento de escolher emoji
-            emojiBtn.addEventListener('click', () => {
-                emojiPicker.classList.toggle('hidden');
-            });
-            
-            // Evento de selecionar emoji
-            emojiPicker.addEventListener('click', event => {
-                if (event.target.classList.contains('emoji-option')) {
-                    messageInput.value += event.target.textContent;
-                    messageInput.focus();
-                    emojiPicker.classList.add('hidden');
-                }
-            });
-            
-            // Evento de abrir menu de opções da mensagem
-            chatMessages.addEventListener('click', event => {
-                if (event.target.closest('.message-container')) {
-                    const messageContainer = event.target.closest('.message-container');
-                    const messageMenu = messageContainer.querySelector('.message-menu');
-                    
-                    if (messageMenuOpen && messageMenuOpen !== messageMenu) {
-                        messageMenuOpen.classList.remove('visible');
-                    }
-                    
-                    messageMenu.classList.toggle('visible');
-                    messageMenuOpen = messageMenu;
-                } else if (messageMenuOpen) {
-                    messageMenuOpen.classList.remove('visible');
-                    messageMenuOpen = null;
-                }
-            });
-            
-            // Inicializa a lista de partições
-            renderPartitionsList();
+            // Focar no input de nickname quando a página carrega
+            nicknameInput.focus();
         });
     </script>
 </body>
