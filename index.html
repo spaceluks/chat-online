@@ -244,6 +244,40 @@
         .partition-input:focus {
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
         }
+        
+        /* Estilo para o modal de criação de partição */
+        .partition-modal {
+            background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        /* Estilo para o link de compartilhamento */
+        .share-link {
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        /* Estilo para o botão de copiar */
+        .copy-btn {
+            background-color: #e5e7eb;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        
+        .copy-btn:hover {
+            background-color: #d1d5db;
+        }
+        
+        .copy-btn.copied {
+            background-color: #10b981;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
@@ -255,7 +289,7 @@
         </div>
     </div>
 
-    <!-- Modal de entrada simplificado -->
+    <!-- Modal de entrada (mostrado apenas se não houver partição na URL) -->
     <div id="entry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div class="entry-modal bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
             <div class="text-center mb-6">
@@ -263,7 +297,7 @@
                     <i class="fas fa-comments text-white text-3xl"></i>
                 </div>
                 <h2 class="text-3xl font-bold text-gray-800 mb-2">Chat Instantâneo</h2>
-                <p class="text-gray-600">Digite o nome da partição para começar a conversar</p>
+                <p class="text-gray-600">Crie ou entre em uma partição de chat</p>
             </div>
             
             <div class="mb-6">
@@ -272,17 +306,105 @@
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
             </div>
             
+            <div class="flex flex-col space-y-3">
+                <button id="create-partition-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-plus-circle mr-2"></i>
+                    Criar Nova Partição
+                </button>
+                <button id="join-existing-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-sign-in-alt mr-2"></i>
+                    Entrar em Partição Existente
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para criar nova partição -->
+    <div id="create-partition-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
+        <div class="partition-modal bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="mx-auto w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-plus text-white text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Criar Nova Partição</h2>
+                <p class="text-gray-600">Escolha um nome para sua partição de chat</p>
+            </div>
+            
             <div class="mb-6">
-                <label for="partition-input" class="block text-sm font-medium text-gray-700 mb-2">Nome da partição</label>
-                <input type="text" id="partition-input" placeholder="Digite o nome da partição"
+                <label for="new-partition-input" class="block text-sm font-medium text-gray-700 mb-2">Nome da Partição</label>
+                <input type="text" id="new-partition-input" placeholder="Digite um nome único"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg partition-input focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
-                <p class="text-xs text-gray-500 mt-1">Se a partição não existir, será criada automaticamente</p>
+                <p class="text-xs text-gray-500 mt-1">Use apenas letras, números e hífens</p>
             </div>
             
             <div class="flex flex-col space-y-3">
-                <button id="enter-chat-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
-                    <i class="fas fa-sign-in-alt mr-2"></i>
-                    Entrar no Chat
+                <button id="confirm-create-btn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-check mr-2"></i>
+                    Criar Partição
+                </button>
+                <button id="cancel-create-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-times mr-2"></i>
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para entrar em partição existente -->
+    <div id="join-partition-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
+        <div class="partition-modal bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="mx-auto w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-sign-in-alt text-white text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Entrar em Partição</h2>
+                <p class="text-gray-600">Digite o nome da partição que deseja entrar</p>
+            </div>
+            
+            <div class="mb-6">
+                <label for="existing-partition-input" class="block text-sm font-medium text-gray-700 mb-2">Nome da Partição</label>
+                <input type="text" id="existing-partition-input" placeholder="Digite o nome da partição"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg partition-input focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+            </div>
+            
+            <div class="flex flex-col space-y-3">
+                <button id="confirm-join-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-check mr-2"></i>
+                    Entrar na Partição
+                </button>
+                <button id="cancel-join-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-times mr-2"></i>
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de compartilhamento -->
+    <div id="share-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
+        <div class="partition-modal bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <div class="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-share-alt text-white text-2xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Compartilhar Partição</h2>
+                <p class="text-gray-600">Compartilhe este link para convidar outras pessoas</p>
+            </div>
+            
+            <div class="mb-6">
+                <div class="share-link flex justify-between items-center">
+                    <span id="share-link-text"></span>
+                    <button id="copy-link-btn" class="copy-btn ml-2">
+                        <i class="fas fa-copy mr-1"></i>
+                        Copiar
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex flex-col space-y-3">
+                <button id="close-share-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-check mr-2"></i>
+                    Fechar
                 </button>
             </div>
         </div>
@@ -304,6 +426,9 @@
             </div>
             
             <div class="flex space-x-2">
+                <button id="share-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Compartilhar partição">
+                    <i class="fas fa-share-alt"></i>
+                </button>
                 <button id="users-toggle-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Mostrar usuários">
                     <i class="fas fa-users"></i>
                 </button>
@@ -312,6 +437,9 @@
                 </button>
                 <button id="change-nick-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Mudar nickname">
                     <i class="fas fa-user-edit"></i>
+                </button>
+                <button id="leave-partition-btn" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-full transition duration-200" title="Sair da partição">
+                    <i class="fas fa-sign-out-alt"></i>
                 </button>
             </div>
         </header>
@@ -486,8 +614,6 @@
             const entryModal = document.getElementById('entry-modal');
             const chatContainer = document.getElementById('chat-container');
             const nicknameInput = document.getElementById('nickname-input');
-            const partitionInput = document.getElementById('partition-input');
-            const enterChatBtn = document.getElementById('enter-chat-btn');
             const currentNickname = document.getElementById('current-nickname');
             const currentPartition = document.getElementById('current-partition');
             const messageInput = document.getElementById('message-input');
@@ -506,6 +632,26 @@
             const notification = document.getElementById('notification');
             const notificationText = document.getElementById('notification-text');
             const chatTitle = document.getElementById('chat-title');
+            
+            // Modais
+            const createPartitionModal = document.getElementById('create-partition-modal');
+            const joinPartitionModal = document.getElementById('join-partition-modal');
+            const shareModal = document.getElementById('share-modal');
+            const newPartitionInput = document.getElementById('new-partition-input');
+            const existingPartitionInput = document.getElementById('existing-partition-input');
+            const shareLinkText = document.getElementById('share-link-text');
+            const copyLinkBtn = document.getElementById('copy-link-btn');
+            
+            // Botões
+            const createPartitionBtn = document.getElementById('create-partition-btn');
+            const joinExistingBtn = document.getElementById('join-existing-btn');
+            const confirmCreateBtn = document.getElementById('confirm-create-btn');
+            const cancelCreateBtn = document.getElementById('cancel-create-btn');
+            const confirmJoinBtn = document.getElementById('confirm-join-btn');
+            const cancelJoinBtn = document.getElementById('cancel-join-btn');
+            const shareBtn = document.getElementById('share-btn');
+            const closeShareBtn = document.getElementById('close-share-btn');
+            const leavePartitionBtn = document.getElementById('leave-partition-btn');
             
             // Variáveis de estado
             let nickname = '';
@@ -845,20 +991,20 @@
                 typingUsers.textContent = formattedText;
             }
             
-            // Evento de entrada no chat
-            enterChatBtn.addEventListener('click', () => {
-                nickname = nicknameInput.value.trim();
-                partitionName = partitionInput.value.trim();
+            // Função para validar nome da partição
+            function isValidPartitionName(name) {
+                return /^[a-zA-Z0-9\-]+$/.test(name);
+            }
+            
+            // Função para entrar no chat
+            function enterChat(nick, partition) {
+                nickname = nick;
+                partitionName = partition;
                 
-                if (!nickname) {
-                    showNotification('Por favor, digite um nickname.');
-                    return;
-                }
-                
-                if (!partitionName) {
-                    showNotification('Por favor, digite o nome da partição.');
-                    return;
-                }
+                // Atualiza a URL para incluir a partição
+                const baseUrl = window.location.href.split('?')[0].split('#')[0];
+                const newUrl = `${baseUrl}${partitionName}`;
+                window.history.pushState({}, '', newUrl);
                 
                 entryModal.classList.add('hidden');
                 chatContainer.classList.remove('hidden');
@@ -868,7 +1014,162 @@
                 chatTitle.textContent = `Chat - ${partitionName}`;
                 
                 connectWebSocket();
+            }
+            
+            // Função para sair da partição
+            function leavePartition() {
+                if (socket) {
+                    socket.close();
+                }
+                
+                // Remove a partição da URL
+                const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+                window.history.pushState({}, '', baseUrl);
+                
+                chatContainer.classList.add('hidden');
+                entryModal.classList.remove('hidden');
+                
+                // Limpa os campos
+                nicknameInput.value = '';
+                currentNickname.textContent = '';
+                currentPartition.textContent = '';
+                
+                // Foca no input de nickname
+                nicknameInput.focus();
+            }
+            
+            // Função para mostrar modal de compartilhamento
+            function showShareModal() {
+                const currentUrl = window.location.href;
+                shareLinkText.textContent = currentUrl;
+                shareModal.classList.remove('hidden');
+            }
+            
+            // Verifica se já existe uma partição na URL
+            function checkUrlForPartition() {
+                const pathParts = window.location.pathname.split('/');
+                const lastPart = pathParts[pathParts.length - 1];
+                
+                // Se a última parte da URL não for vazia e não for "chat-online"
+                if (lastPart && lastPart !== 'chat-online') {
+                    partitionName = lastPart;
+                    
+                    // Mostra apenas o input de nickname
+                    entryModal.querySelector('label[for="partition-input"]').parentElement.classList.add('hidden');
+                    entryModal.querySelector('button[id="enter-chat-btn"]').classList.remove('hidden');
+                    
+                    // Muda o texto do botão
+                    const enterBtn = entryModal.querySelector('button[id="enter-chat-btn"]');
+                    enterBtn.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i> Entrar na Partição';
+                    
+                    // Atualiza o texto explicativo
+                    entryModal.querySelector('p.text-gray-600').textContent = 
+                        `Você está entrando na partição "${partitionName}". Digite seu nickname para continuar.`;
+                }
+            }
+            
+            // Evento de criação de nova partição
+            createPartitionBtn.addEventListener('click', () => {
+                entryModal.classList.add('hidden');
+                createPartitionModal.classList.remove('hidden');
+                newPartitionInput.focus();
             });
+            
+            // Evento de entrar em partição existente
+            joinExistingBtn.addEventListener('click', () => {
+                entryModal.classList.add('hidden');
+                joinPartitionModal.classList.remove('hidden');
+                existingPartitionInput.focus();
+            });
+            
+            // Evento de confirmação de criação de partição
+            confirmCreateBtn.addEventListener('click', () => {
+                const newPartition = newPartitionInput.value.trim();
+                const nick = nicknameInput.value.trim();
+                
+                if (!nick) {
+                    showNotification('Por favor, digite um nickname.');
+                    return;
+                }
+                
+                if (!newPartition) {
+                    showNotification('Por favor, digite um nome para a partição.');
+                    return;
+                }
+                
+                if (!isValidPartitionName(newPartition)) {
+                    showNotification('Use apenas letras, números e hífens no nome da partição.');
+                    return;
+                }
+                
+                createPartitionModal.classList.add('hidden');
+                enterChat(nick, newPartition);
+            });
+            
+            // Evento de cancelamento de criação de partição
+            cancelCreateBtn.addEventListener('click', () => {
+                createPartitionModal.classList.add('hidden');
+                entryModal.classList.remove('hidden');
+            });
+            
+            // Evento de confirmação de entrada em partição existente
+            confirmJoinBtn.addEventListener('click', () => {
+                const existingPartition = existingPartitionInput.value.trim();
+                const nick = nicknameInput.value.trim();
+                
+                if (!nick) {
+                    showNotification('Por favor, digite um nickname.');
+                    return;
+                }
+                
+                if (!existingPartition) {
+                    showNotification('Por favor, digite o nome da partição.');
+                    return;
+                }
+                
+                if (!isValidPartitionName(existingPartition)) {
+                    showNotification('Use apenas letras, números e hífens no nome da partição.');
+                    return;
+                }
+                
+                joinPartitionModal.classList.add('hidden');
+                enterChat(nick, existingPartition);
+            });
+            
+            // Evento de cancelamento de entrada em partição existente
+            cancelJoinBtn.addEventListener('click', () => {
+                joinPartitionModal.classList.add('hidden');
+                entryModal.classList.remove('hidden');
+            });
+            
+            // Evento de compartilhamento de partição
+            shareBtn.addEventListener('click', showShareModal);
+            
+            // Evento de fechar modal de compartilhamento
+            closeShareBtn.addEventListener('click', () => {
+                shareModal.classList.add('hidden');
+            });
+            
+            // Evento de copiar link
+            copyLinkBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(shareLinkText.textContent)
+                    .then(() => {
+                        copyLinkBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Copiado!';
+                        copyLinkBtn.classList.add('copied');
+                        
+                        setTimeout(() => {
+                            copyLinkBtn.innerHTML = '<i class="fas fa-copy mr-1"></i> Copiar';
+                            copyLinkBtn.classList.remove('copied');
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('Erro ao copiar link:', err);
+                        showNotification('Não foi possível copiar o link. Tente novamente.');
+                    });
+            });
+            
+            // Evento de sair da partição
+            leavePartitionBtn.addEventListener('click', leavePartition);
             
             // Evento de envio de mensagem
             sendBtn.addEventListener('click', sendMessage);
@@ -949,6 +1250,9 @@
                     }
                 }, 2000);
             });
+            
+            // Verifica se há partição na URL ao carregar a página
+            checkUrlForPartition();
             
             // Focar no input de nickname quando a página carrega
             nicknameInput.focus();
