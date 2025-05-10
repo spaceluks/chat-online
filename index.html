@@ -378,6 +378,15 @@
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
             </div>
             
+            <div class="mb-6">
+                <label for="chat-select" class="block text-sm font-medium text-gray-700 mb-2">Escolha o chat</label>
+                <select id="chat-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200">
+                    <option value="bus">Bus</option>
+                    <option value="tech">Tech</option>
+                    <option value="gaming">Gaming</option>
+                </select>
+            </div>
+            
             <div class="flex flex-col space-y-3">
                 <button id="enter-chat-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition duration-200 flex items-center justify-center">
                     <i class="fas fa-sign-in-alt mr-2"></i>
@@ -400,7 +409,7 @@
                     <i class="fas fa-comments"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold">Chat Colaborativo</h1>
+                    <h1 class="text-xl font-bold" id="chat-title">Chat Colaborativo</h1>
                     <p class="text-sm opacity-80">Conectado como: <span id="current-nickname" class="font-semibold"></span></p>
                 </div>
             </div>
@@ -515,75 +524,82 @@
     <script>
         // Objeto global para simular o servidor
         window.mockServer = {
-            clients: [],
-            messages: [],
-            typingUsers: new Set(),
+            clients: {},
+            messages: {},
+            typingUsers: {},
             messageReactions: {},
             
-            broadcast: function(message, excludeClient = null) {
-                this.clients.forEach(client => {
+            broadcast: function(chatName, message, excludeClient = null) {
+                this.clients[chatName]?.forEach(client => {
                     if (client !== excludeClient && client.onmessage) {
                         client.onmessage({ data: JSON.stringify(message) });
                     }
                 });
             },
             
-            addClient: function(ws) {
-                this.clients.push(ws);
+            addClient: function(chatName, ws) {
+                if (!this.clients[chatName]) {
+                    this.clients[chatName] = [];
+                    this.messages[chatName] = [];
+                    this.typingUsers[chatName] = new Set();
+                    this.messageReactions[chatName] = {};
+                }
+                
+                this.clients[chatName].push(ws);
                 
                 // Envia histórico de mensagens para o novo cliente
-                if (this.messages.length > 0) {
+                if (this.messages[chatName].length > 0) {
                     ws.onmessage({ 
                         data: JSON.stringify({
                             type: 'history',
-                            messages: this.messages.slice(-50),
-                            reactions: this.messageReactions
+                            messages: this.messages[chatName].slice(-50),
+                            reactions: this.messageReactions[chatName]
                         })
                     });
                 }
                 
                 // Notifica todos sobre o novo usuário
-                this.broadcast({
+                this.broadcast(chatName, {
                     type: 'user_join',
                     nickname: ws.nickname,
                     timestamp: new Date().toISOString()
                 });
                 
-                this.updateUserList();
+                this.updateUserList(chatName);
             },
             
-            removeClient: function(ws) {
-                this.clients = this.clients.filter(client => client !== ws);
+            removeClient: function(chatName, ws) {
+                this.clients[chatName] = this.clients[chatName].filter(client => client !== ws);
                 
                 // Notifica todos sobre a saída do usuário
                 if (ws.nickname) {
-                    this.broadcast({
+                    this.broadcast(chatName, {
                         type: 'user_leave',
                         nickname: ws.nickname,
                         timestamp: new Date().toISOString()
                     });
                 }
                 
-                this.updateUserList();
+                this.updateUserList(chatName);
             },
             
-            updateUserList: function() {
-                const userList = this.clients
+            updateUserList: function(chatName) {
+                const userList = this.clients[chatName]
                     .filter(client => client.nickname)
                     .map(client => client.nickname);
                 
-                this.broadcast({
+                this.broadcast(chatName, {
                     type: 'user_list',
                     users: userList
                 });
             },
             
-            addMessage: function(message) {
+            addMessage: function(chatName, message) {
                 const messageId = Date.now().toString();
                 message.id = messageId;
-                this.messages.push(message);
+                this.messages[chatName].push(message);
                 
-                this.broadcast({
+                this.broadcast(chatName, {
                     type: 'message',
                     id: messageId,
                     sender: message.sender,
@@ -595,43 +611,43 @@
                 return messageId;
             },
             
-            updateTyping: function(nickname, isTyping) {
+            updateTyping: function(chatName, nickname, isTyping) {
                 if (isTyping) {
-                    this.typingUsers.add(nickname);
+                    this.typingUsers[chatName].add(nickname);
                 } else {
-                    this.typingUsers.delete(nickname);
+                    this.typingUsers[chatName].delete(nickname);
                 }
                 
-                this.broadcast({
+                this.broadcast(chatName, {
                     type: 'typing',
-                    users: Array.from(this.typingUsers)
+                    users: Array.from(this.typingUsers[chatName])
                 });
             },
             
-            addReaction: function(messageId, reaction, nickname) {
-                if (!this.messageReactions[messageId]) {
-                    this.messageReactions[messageId] = {};
+            addReaction: function(chatName, messageId, reaction, nickname) {
+                if (!this.messageReactions[chatName][messageId]) {
+                    this.messageReactions[chatName][messageId] = {};
                 }
                 
-                if (!this.messageReactions[messageId][reaction]) {
-                    this.messageReactions[messageId][reaction] = new Set();
+                if (!this.messageReactions[chatName][messageId][reaction]) {
+                    this.messageReactions[chatName][messageId][reaction] = new Set();
                 }
                 
                 // Remove any existing reaction from this user for this message
-                for (const r in this.messageReactions[messageId]) {
-                    this.messageReactions[messageId][r].delete(nickname);
-                    if (this.messageReactions[messageId][r].size === 0) {
-                        delete this.messageReactions[messageId][r];
+                for (const r in this.messageReactions[chatName][messageId]) {
+                    this.messageReactions[chatName][messageId][r].delete(nickname);
+                    if (this.messageReactions[chatName][messageId][r].size === 0) {
+                        delete this.messageReactions[chatName][messageId][r];
                     }
                 }
                 
                 // Add new reaction
-                this.messageReactions[messageId][reaction].add(nickname);
+                this.messageReactions[chatName][messageId][reaction].add(nickname);
                 
-                this.broadcast({
+                this.broadcast(chatName, {
                     type: 'reaction',
                     messageId: messageId,
-                    reactions: this.messageReactions[messageId]
+                    reactions: this.messageReactions[chatName][messageId]
                 });
             }
         };
@@ -641,6 +657,7 @@
             const entryModal = document.getElementById('entry-modal');
             const chatContainer = document.getElementById('chat-container');
             const nicknameInput = document.getElementById('nickname-input');
+            const chatSelect = document.getElementById('chat-select');
             const enterChatBtn = document.getElementById('enter-chat-btn');
             const currentNickname = document.getElementById('current-nickname');
             const messageInput = document.getElementById('message-input');
@@ -664,9 +681,11 @@
             const replyToUser = document.getElementById('reply-to-user');
             const replyPreviewContent = document.getElementById('reply-preview-content');
             const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+            const chatTitle = document.getElementById('chat-title');
             
             // Variáveis de estado
             let nickname = '';
+            let chatName = '';
             let users = [];
             let typingTimeout;
             let socket;
@@ -724,7 +743,7 @@
                             
                             if (msg.type === 'register') {
                                 this.nickname = msg.nickname;
-                                window.mockServer.addClient(this);
+                                window.mockServer.addClient(chatName, this);
                                 showNotification(`Bem-vindo ao chat, ${this.nickname}!`);
                             } 
                             else if (msg.type === 'message') {
@@ -737,33 +756,33 @@
                                     replyTo: msg.replyTo || null
                                 };
                                 
-                                const messageId = window.mockServer.addMessage(messageData);
+                                const messageId = window.mockServer.addMessage(chatName, messageData);
                                 
                                 // Exibe a mensagem localmente como "enviada"
                                 displayMessage(this.nickname, msg.content, true, new Date().toISOString(), messageId, msg.replyTo);
                             }
                             else if (msg.type === 'typing') {
-                                window.mockServer.updateTyping(msg.sender, msg.isTyping);
+                                window.mockServer.updateTyping(chatName, msg.sender, msg.isTyping);
                             }
                             else if (msg.type === 'nickname_change') {
                                 const oldNickname = this.nickname;
                                 this.nickname = msg.newNickname;
-                                window.mockServer.broadcast({
+                                window.mockServer.broadcast(chatName, {
                                     type: 'system_message',
                                     content: `${oldNickname} mudou para ${this.nickname}`,
                                     timestamp: new Date().toISOString()
                                 });
-                                window.mockServer.updateUserList();
+                                window.mockServer.updateUserList(chatName);
                                 showNotification(`Seu nickname foi alterado para ${this.nickname}`);
                             }
                             else if (msg.type === 'reaction') {
-                                window.mockServer.addReaction(msg.messageId, msg.reaction, this.nickname);
+                                window.mockServer.addReaction(chatName, msg.messageId, msg.reaction, this.nickname);
                             }
                         },
                         
                         close: function() {
                             this.readyState = WebSocket.CLOSED;
-                            window.mockServer.removeClient(this);
+                            window.mockServer.removeClient(chatName, this);
                             if (typeof this.onclose === 'function') {
                                 this.onclose({wasClean: true});
                             }
@@ -915,664 +934,326 @@
                 
                 // Container de texto
                 const textContainer = document.createElement('div');
-                textContainer.className = `flex-1 ${isCurrentUser ? 'text-right' : 'text-left'}`;
-                
-                // Adiciona informações do remetente
-                const senderDiv = document.createElement('div');
-                senderDiv.className = `text-xs font-semibold ${isCurrentUser ? 'text-indigo-100' : 'text-gray-600'}`;
-                senderDiv.textContent = sender;
-                
-                // Adiciona conteúdo da mensagem
-                const messageContent = document.createElement('div');
-                messageContent.className = 'py-1';
+                textContainer.className = 'ml-2 flex flex-col';
+
+                // Nickname
+                const nicknameSpan = document.createElement('span');
+                nicknameSpan.className = 'font-semibold';
+                nicknameSpan.textContent = sender;
+
+                // Conteúdo da mensagem
+                const messageContent = document.createElement('p');
+                messageContent.className = 'break-words';
                 messageContent.textContent = message;
-                
-                // Adiciona reply se existir
+
+                // Timestamp
+                const timestampSpan = document.createElement('span');
+                timestampSpan.className = 'text-xs opacity-75 mt-1';
+                timestampSpan.textContent = new Date(timestamp).toLocaleTimeString();
+
+                // Resposta a uma mensagem
                 if (replyTo) {
                     const replyInfo = document.createElement('div');
-                    replyInfo.className = 'reply-info';
-                    replyInfo.textContent = `Respondendo a ${replyTo.sender}`;
-                    
-                    const replyContent = document.createElement('div');
-                    replyContent.className = 'message-reply';
-                    replyContent.textContent = replyTo.content.length > 30 ? 
-                        replyTo.content.substring(0, 30) + '...' : 
-                        replyTo.content;
-                    
+                    replyInfo.className = 'message-reply mb-1';
+                    replyInfo.textContent = `Respondendo a ${replyTo.sender}: ${replyTo.content}`;
                     textContainer.appendChild(replyInfo);
-                    textContainer.appendChild(replyContent);
                 }
-                
-                textContainer.appendChild(senderDiv);
+
+                // Adiciona elementos ao container de texto
+                textContainer.appendChild(nicknameSpan);
                 textContainer.appendChild(messageContent);
-                
-                // Adiciona timestamp se disponível
-                if (timestamp) {
-                    const timeDiv = document.createElement('div');
-                    timeDiv.className = `text-xs ${isCurrentUser ? 'text-indigo-100' : 'text-gray-500'}`;
-                    
-                    const messageTime = new Date(timestamp);
-                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    
-                    textContainer.appendChild(timeDiv);
-                }
-                
-                // Adiciona menu de opções para mensagens do usuário atual
-                if (isCurrentUser) {
-                    const menuBtn = document.createElement('button');
-                    menuBtn.className = 'ml-2 text-gray-400 hover:text-gray-600';
-                    menuBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
-                    menuBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        toggleMessageMenu(messageId);
-                    };
-                    
-                    textContainer.appendChild(menuBtn);
-                }
-                
-                contentContainer.appendChild(textContainer);
-                messageContainer.appendChild(contentContainer);
-                
-                // Se for mensagem do usuário atual, alinha à direita
-                if (isCurrentUser) {
-                    messageDiv.className += ' flex justify-end';
-                } else {
-                    messageDiv.className += ' flex justify-start';
-                    
-                    // Adiciona menu de resposta e reação para mensagens de outros usuários
-                    const reactionBtn = document.createElement('button');
-                    reactionBtn.className = 'ml-2 text-gray-400 hover:text-gray-600';
-                    reactionBtn.innerHTML = '<i class="far fa-smile"></i>';
-                    reactionBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        showReactionPicker(messageId, e.target);
-                    };
-                    
-                    const replyBtn = document.createElement('button');
-                    replyBtn.className = 'ml-2 text-gray-400 hover:text-gray-600';
-                    replyBtn.innerHTML = '<i class="fas fa-reply"></i>';
-                    replyBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        setReplyTo(messageId, sender, message);
-                    };
-                    
-                    const actionContainer = document.createElement('div');
-                    actionContainer.className = 'flex mt-1';
-                    actionContainer.appendChild(reactionBtn);
-                    actionContainer.appendChild(replyBtn);
-                    
-                    textContainer.appendChild(actionContainer);
-                }
-                
-                messageDiv.appendChild(messageContainer);
-                
-                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.empty-chat');
-                if (emptyMessage) {
-                    chatMessages.removeChild(emptyMessage);
-                }
-                
-                chatMessages.appendChild(messageDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-            
-            // Função para mostrar menu de mensagem
-            function toggleMessageMenu(messageId) {
-                if (messageMenuOpen === messageId) {
-                    // Fecha o menu se já estiver aberto
-                    const existingMenu = document.querySelector('.message-options');
-                    if (existingMenu) {
-                        existingMenu.remove();
-                    }
-                    messageMenuOpen = null;
-                    return;
-                }
-                
-                // Remove qualquer menu existente
-                const existingMenu = document.querySelector('.message-options');
-                if (existingMenu) {
-                    existingMenu.remove();
-                }
-                
-                // Cria novo menu
-                const menu = document.createElement('div');
-                menu.className = 'message-options';
-                
-                const deleteOption = document.createElement('div');
-                deleteOption.className = 'message-option delete';
-                deleteOption.innerHTML = '<i class="fas fa-trash mr-2"></i> Excluir';
-                deleteOption.onclick = () => {
-                    // Implementar lógica para excluir mensagem
-                    alert('Funcionalidade de exclusão será implementada em breve!');
-                    menu.remove();
-                    messageMenuOpen = null;
-                };
-                
-                menu.appendChild(deleteOption);
-                
-                // Adiciona menu ao DOM
-                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                if (messageElement) {
-                    messageElement.appendChild(menu);
-                    messageMenuOpen = messageId;
-                }
-                
-                // Fecha o menu ao clicar fora
-                setTimeout(() => {
-                    document.addEventListener('click', function closeMenu(e) {
-                        if (!messageElement.contains(e.target)) {
-                            menu.remove();
-                            messageMenuOpen = null;
-                            document.removeEventListener('click', closeMenu);
-                        }
-                    });
-                }, 10);
-            }
-            
-            // Função para mostrar seletor de reações
-            function showReactionPicker(messageId, target) {
-                // Remove qualquer seletor existente
-                const existingPicker = document.querySelector('.reaction-picker');
-                if (existingPicker) {
-                    existingPicker.remove();
-                    return;
-                }
-                
-                // Cria novo seletor
-                const picker = document.createElement('div');
-                picker.className = 'reaction-picker';
-                
-                // Reações disponíveis
-                const reactions = ['👍', '❤️', '😂', '😮', '😢', '👏'];
-                
-                reactions.forEach(reaction => {
-                    const option = document.createElement('span');
-                    option.className = 'reaction-option';
-                    option.textContent = reaction;
-                    option.onclick = () => {
-                        if (socket && socket.readyState === WebSocket.OPEN) {
+                textContainer.appendChild(timestampSpan);
+
+                // Botões de reação e menu
+                const reactionButtons = document.createElement('div');
+                reactionButtons.className = 'message-reactions mt-1';
+                reactionButtons.innerHTML = `
+                    <button class="reaction-btn" data-reaction="👍">👍</button>
+                    <button class="reaction-btn" data-reaction="😂">😂</button>
+                    <button class="reaction-btn" data-reaction="❤️">❤️</button>
+                `;
+
+                const messageMenu = document.createElement('div');
+                messageMenu.className = 'message-menu';
+                messageMenu.innerHTML = `
+                    <div class="message-options">
+                        <div class="message-option reply">Responder</div>
+                        <div class="message-option delete">Excluir</div>
+                    </div>
+                `;
+
+                // Adiciona eventos aos botões de reação
+                reactionButtons.querySelectorAll('.reaction-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        if (socket) {
                             socket.send(JSON.stringify({
                                 type: 'reaction',
                                 messageId: messageId,
-                                reaction: reaction,
-                                sender: nickname
+                                reaction: btn.getAttribute('data-reaction')
                             }));
-                        }
-                        picker.remove();
-                    };
-                    
-                    picker.appendChild(option);
-                });
-                
-                // Posiciona o seletor
-                const rect = target.getBoundingClientRect();
-                picker.style.left = `${rect.left - 100}px`;
-                picker.style.bottom = `${window.innerHeight - rect.top + 10}px`;
-                
-                document.body.appendChild(picker);
-                
-                // Fecha o seletor ao clicar fora
-                setTimeout(() => {
-                    document.addEventListener('click', function closePicker(e) {
-                        if (!picker.contains(e.target) && e.target !== target) {
-                            picker.remove();
-                            document.removeEventListener('click', closePicker);
                         }
                     });
-                }, 10);
+                });
+
+                // Adiciona evento ao menu de opções da mensagem
+                messageMenu.querySelector('.reply').addEventListener('click', () => {
+                    currentReply = { id: messageId, sender: sender, content: message };
+                    updateReplyPreview();
+                });
+
+                messageMenu.querySelector('.delete').addEventListener('click', () => {
+                    // Implementar exclusão de mensagem (opcional)
+                });
+
+                // Adiciona elementos ao container de mensagem
+                contentContainer.appendChild(textContainer);
+                messageContainer.appendChild(contentContainer);
+                messageContainer.appendChild(reactionButtons);
+                messageContainer.appendChild(messageMenu);
+
+                // Adiciona mensagem ao chat
+                messageDiv.appendChild(messageContainer);
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
-            
-            // Função para atualizar reações da mensagem
+
+            // Função para atualizar reações de uma mensagem
             function updateMessageReactions(messageElement, reactions) {
-                // Remove qualquer reação existente
-                const existingReactions = messageElement.querySelector('.message-reactions');
-                if (existingReactions) {
-                    existingReactions.remove();
-                }
-                
-                // Se não houver reações, não faz nada
-                if (!reactions || Object.keys(reactions).length === 0) {
-                    return;
-                }
-                
-                // Cria container de reações
-                const reactionsContainer = document.createElement('div');
-                reactionsContainer.className = 'message-reactions';
-                
-                // Adiciona cada reação
-                for (const reaction in reactions) {
-                    const users = Array.from(reactions[reaction]);
-                    const count = users.length;
-                    
-                    const reactionBtn = document.createElement('span');
-                    reactionBtn.className = 'reaction-btn';
-                    if (users.includes(nickname)) {
-                        reactionBtn.classList.add('active');
-                    }
-                    
-                    reactionBtn.textContent = `${reaction} ${count > 1 ? count : ''}`;
-                    reactionBtn.title = users.join(', ');
-                    
-                    reactionBtn.onclick = () => {
-                        if (socket && socket.readyState === WebSocket.OPEN) {
-                            socket.send(JSON.stringify({
-                                type: 'reaction',
-                                messageId: messageElement.getAttribute('data-message-id'),
-                                reaction: reaction,
-                                sender: nickname
-                            }));
-                        }
-                    };
-                    
-                    reactionsContainer.appendChild(reactionBtn);
-                }
-                
-                // Adiciona ao DOM
-                const messageContent = messageElement.querySelector('div > div > div'); // Acha o container de conteúdo
-                if (messageContent) {
-                    messageContent.appendChild(reactionsContainer);
-                }
+                const reactionButtons = messageElement.querySelector('.message-reactions');
+                reactionButtons.querySelectorAll('.reaction-btn').forEach(btn => {
+                    const reaction = btn.getAttribute('data-reaction');
+                    const usersReacted = reactions[reaction] ? Array.from(reactions[reaction]) : [];
+                    btn.textContent = `${reaction} ${usersReacted.length}`;
+                    btn.classList.toggle('active', usersReacted.includes(nickname));
+                });
             }
-            
-            // Função para configurar resposta a uma mensagem
-            function setReplyTo(messageId, sender, content) {
-                currentReply = {
-                    id: messageId,
-                    sender: sender,
-                    content: content
-                };
-                
-                replyToUser.textContent = sender;
-                replyPreviewContent.textContent = content.length > 50 ? 
-                    content.substring(0, 50) + '...' : 
-                    content;
-                
-                replyPreview.classList.remove('hidden');
-                messageInput.focus();
-            }
-            
-            // Função para cancelar resposta
-            function cancelReply() {
-                currentReply = null;
-                replyPreview.classList.add('hidden');
-            }
-            
-            // Função para mostrar mensagem de entrada no chat
-            function displayJoinMessage(nickname, timestamp = null) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'mb-3 message-animation join-message';
-                
-                const icon = document.createElement('i');
-                icon.className = 'fas fa-user-plus mr-2 text-green-500';
-                
-                const messageText = document.createElement('span');
-                messageText.textContent = `${nickname} entrou no chat`;
-                
-                messageDiv.appendChild(icon);
-                messageDiv.appendChild(messageText);
-                
-                // Adiciona timestamp se disponível
-                if (timestamp) {
-                    const timeDiv = document.createElement('div');
-                    timeDiv.className = 'text-xs text-right text-gray-500 mt-1';
-                    
-                    const messageTime = new Date(timestamp);
-                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    
-                    messageDiv.appendChild(timeDiv);
-                }
-                
-                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.empty-chat');
-                if (emptyMessage) {
-                    chatMessages.removeChild(emptyMessage);
-                }
-                
-                chatMessages.appendChild(messageDiv);
+
+            // Função para mostrar mensagem de sistema
+            function displaySystemMessage(content, timestamp) {
+                const systemMessageDiv = document.createElement('div');
+                systemMessageDiv.className = 'system-message mb-3 message-animation';
+                systemMessageDiv.innerHTML = `
+                    <p>${content}</p>
+                    <span class="text-xs opacity-75">${new Date(timestamp).toLocaleTimeString()}</span>
+                `;
+                chatMessages.appendChild(systemMessageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
-            
-            // Função para mostrar mensagem de saída do chat
-            function displayLeaveMessage(nickname, timestamp = null) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'mb-3 message-animation leave-message';
-                
-                const icon = document.createElement('i');
-                icon.className = 'fas fa-user-minus mr-2 text-red-500';
-                
-                const messageText = document.createElement('span');
-                messageText.textContent = `${nickname} saiu do chat`;
-                
-                messageDiv.appendChild(icon);
-                messageDiv.appendChild(messageText);
-                
-                // Adiciona timestamp se disponível
-                if (timestamp) {
-                    const timeDiv = document.createElement('div');
-                    timeDiv.className = 'text-xs text-right text-gray-500 mt-1';
-                    
-                    const messageTime = new Date(timestamp);
-                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    
-                    messageDiv.appendChild(timeDiv);
-                }
-                
-                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.empty-chat');
-                if (emptyMessage) {
-                    chatMessages.removeChild(emptyMessage);
-                }
-                
-                chatMessages.appendChild(messageDiv);
+
+            // Função para mostrar mensagem de entrada de usuário
+            function displayJoinMessage(nickname, timestamp) {
+                const joinMessageDiv = document.createElement('div');
+                joinMessageDiv.className = 'join-message mb-3 message-animation';
+                joinMessageDiv.innerHTML = `
+                    <p>${nickname} entrou no chat.</p>
+                    <span class="text-xs opacity-75">${new Date(timestamp).toLocaleTimeString()}</span>
+                `;
+                chatMessages.appendChild(joinMessageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
-            
-            // Função para mostrar mensagem do sistema
-            function displaySystemMessage(message, timestamp = null) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'mb-3 message-animation system-message';
-                
-                const icon = document.createElement('i');
-                icon.className = 'fas fa-info-circle mr-2 text-blue-500';
-                
-                const messageText = document.createElement('span');
-                messageText.textContent = message;
-                
-                messageDiv.appendChild(icon);
-                messageDiv.appendChild(messageText);
-                
-                // Adiciona timestamp se disponível
-                if (timestamp) {
-                    const timeDiv = document.createElement('div');
-                    timeDiv.className = 'text-xs text-right text-gray-500 mt-1';
-                    
-                    const messageTime = new Date(timestamp);
-                    timeDiv.textContent = messageTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    
-                    messageDiv.appendChild(timeDiv);
-                }
-                
-                // Verifica se há a mensagem de "Nenhuma mensagem ainda" e remove
-                const emptyMessage = chatMessages.querySelector('.empty-chat');
-                if (emptyMessage) {
-                    chatMessages.removeChild(emptyMessage);
-                }
-                
-                chatMessages.appendChild(messageDiv);
+
+            // Função para mostrar mensagem de saída de usuário
+            function displayLeaveMessage(nickname, timestamp) {
+                const leaveMessageDiv = document.createElement('div');
+                leaveMessageDiv.className = 'leave-message mb-3 message-animation';
+                leaveMessageDiv.innerHTML = `
+                    <p>${nickname} saiu do chat.</p>
+                    <span class="text-xs opacity-75">${new Date(timestamp).toLocaleTimeString()}</span>
+                `;
+                chatMessages.appendChild(leaveMessageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
-            
-            // Função para limpar o chat
-            function clearChat() {
-                if (confirm('Tem certeza que deseja limpar todas as mensagens do chat?')) {
-                    chatMessages.innerHTML = '<div class="empty-chat text-center text-gray-500 py-4 h-full flex flex-col items-center justify-center"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
-                }
-            }
-            
-            // Função para atualizar contagem de usuários
-            function updateUserCount(count) {
-                userCount.textContent = `${count} usuário${count !== 1 ? 's' : ''} online`;
-            }
-            
-            // Função para atualizar la lista de usuários
-            function updateUsersList(usersArray) {
+
+            // Função para atualizar lista de usuários
+            function updateUsersList(userList) {
+                users = userList;
+                userCount.textContent = `${users.length} usuários`;
+
+                // Limpa lista existente
                 usersList.innerHTML = '';
-                updateUserCount(usersArray.length);
-                
-                // Atualiza a lista global de usuários
-                users = usersArray;
-                
-                usersArray.forEach(user => {
-                    const userBadge = document.createElement('span');
-                    userBadge.className = `user-badge ${user === nickname ? 'you' : ''}`;
-                    
-                    const statusDot = document.createElement('span');
-                    statusDot.className = 'status-dot online';
-                    
-                    const userName = document.createElement('span');
-                    userName.textContent = user;
-                    
-                    userBadge.appendChild(statusDot);
-                    userBadge.appendChild(userName);
+
+                // Adiciona novos usuários
+                users.forEach(user => {
+                    const userBadge = document.createElement('div');
+                    userBadge.className = 'user-badge';
+                    userBadge.innerHTML = `
+                        <div class="status-dot online"></div>
+                        ${user}
+                    `;
                     usersList.appendChild(userBadge);
                 });
             }
-            
-            // Função para atualizar o indicador de digitação
-            function updateTypingIndicator(typingUsersList) {
-                if (typingUsersList.length > 0) {
-                    let usersText;
-                    
-                    if (typingUsersList.length === 1) {
-                        usersText = `${typingUsersList[0]} está digitando`;
-                    } else if (typingUsersList.length === 2) {
-                        usersText = `${typingUsersList[0]} e ${typingUsersList[1]} estão digitando`;
-                    } else {
-                        usersText = `${typingUsersList[0]}, ${typingUsersList[1]} e outros estão digitando`;
-                    }
-                    
-                    typingUsers.textContent = usersText;
-                    typingIndicator.classList.remove('hidden');
-                } else {
+
+            // Função para atualizar indicador de digitação
+            function updateTypingIndicator(typingUsers) {
+                if (typingUsers.length === 0) {
                     typingIndicator.classList.add('hidden');
-                }
-            }
-            
-            // Função para notificar que o usuário está digitando
-            function notifyTyping(isTyping) {
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    try {
-                        socket.send(JSON.stringify({
-                            type: 'typing',
-                            isTyping: isTyping,
-                            sender: nickname
-                        }));
-                    } catch (error) {
-                        console.error("Erro ao enviar status de digitação:", error);
-                    }
-                }
-            }
-            
-            // Função para enviar mensagem com verificação de conexão
-            function sendMessage() {
-                const message = messageInput.value.trim();
-                if (message === '') return;
-                
-                if (!socket || socket.readyState !== WebSocket.OPEN) {
-                    displaySystemMessage('Não foi possível enviar a mensagem. Tentando reconectar...');
-                    connectWebSocket();
                     return;
                 }
-                
-                try {
-                    const messageData = {
-                        type: 'message',
-                        sender: nickname,
-                        content: message,
-                        timestamp: new Date().toISOString(),
-                        replyTo: currentReply || null
-                    };
-                    
-                    // Envia a mensagem para o servidor
-                    socket.send(JSON.stringify(messageData));
-                    messageInput.value = '';
-                    
-                    // Cancela a resposta se existir
-                    if (currentReply) {
-                        cancelReply();
-                    }
-                    
-                    // Notifica que parou de digitar
-                    if (isTyping) {
-                        isTyping = false;
-                        notifyTyping(false);
-                    }
-                } catch (error) {
-                    console.error("Erro ao enviar mensagem:", error);
-                    displaySystemMessage('Erro ao enviar mensagem. Tentando reconectar...');
-                    connectWebSocket();
-                }
-            }
-            
-            // Função para entrar no chat
-            function enterChat() {
-                const newNickname = nicknameInput.value.trim();
-                
-                if (newNickname === '') {
-                    alert('Por favor, digite um nickname válido.');
+
+                typingUsers = typingUsers.filter(user => user !== nickname);
+                if (typingUsers.length === 0) {
+                    typingIndicator.classList.add('hidden');
                     return;
                 }
-                
-                nickname = newNickname;
-                currentNickname.textContent = nickname;
-                
-                // Esconde o modal e mostra o chat
+
+                typingIndicator.classList.remove('hidden');
+                typingUsers = typingUsers.map(user => `<span>${user}</span>`).join(', ');
+                typingUsers = typingUsers.replace(/,([^,]*)$/, ' e$1');
+                typingUsersText.textContent = typingUsers;
+            }
+
+            // Função para atualizar visualização de resposta
+            function updateReplyPreview() {
+                if (currentReply) {
+                    replyPreview.classList.remove('hidden');
+                    replyToUser.textContent = currentReply.sender;
+                    replyPreviewContent.textContent = currentReply.content;
+                } else {
+                    replyPreview.classList.add('hidden');
+                }
+            }
+
+            // Evento de entrada no chat
+            enterChatBtn.addEventListener('click', () => {
+                nickname = nicknameInput.value.trim();
+                chatName = chatSelect.value;
+
+                if (!nickname || !chatName) {
+                    showNotification('Por favor, preencha todos os campos.');
+                    return;
+                }
+
                 entryModal.classList.add('hidden');
                 chatContainer.classList.remove('hidden');
-                
-                // Conecta ao WebSocket
+
+                currentNickname.textContent = nickname;
+                chatTitle.textContent = `Chat Colaborativo - ${chatName}`;
+
                 connectWebSocket();
-                
-                // Foca no campo de mensagem
-                messageInput.focus();
-            }
-            
-            // Função para mudar nickname
-            function changeNickname() {
-                const newNickname = prompt('Digite seu novo nickname:', nickname);
-                
-                if (newNickname && newNickname.trim() !== '' && newNickname.trim() !== nickname) {
-                    const oldNickname = nickname;
-                    nickname = newNickname.trim();
-                    
-                    // Atualiza o nickname exibido
-                    currentNickname.textContent = nickname;
-                    
-                    // Envia mensagem de mudança para o servidor
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        try {
-                            socket.send(JSON.stringify({
-                                type: 'nickname_change',
-                                oldNickname: oldNickname,
-                                newNickname: nickname
-                            }));
-                        } catch (error) {
-                            console.error("Erro ao enviar mudança de nickname:", error);
-                            displaySystemMessage('Erro ao atualizar nickname. Tentando reconectar...');
-                            connectWebSocket();
-                        }
-                    }
-                }
-            }
-            
-            // Função para mostrar/ocultar emoji picker
-            function toggleEmojiPicker() {
-                if (emojiPicker.classList.contains('hidden')) {
-                    emojiPicker.classList.remove('hidden');
-                    
-                    // Posiciona o emoji picker
-                    const rect = emojiBtn.getBoundingClientRect();
-                    emojiPicker.style.left = `${rect.left - emojiPicker.offsetWidth + rect.width}px`;
-                    emojiPicker.style.bottom = `${window.innerHeight - rect.top + 10}px`;
-                    
-                    // Fecha ao clicar fora
-                    setTimeout(() => {
-                        document.addEventListener('click', function closePicker(e) {
-                            if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
-                                emojiPicker.classList.add('hidden');
-                                document.removeEventListener('click', closePicker);
-                            }
-                        });
-                    }, 10);
-                } else {
-                    emojiPicker.classList.add('hidden');
-                }
-            }
-            
-            // Event Listeners
-            enterChatBtn.addEventListener('click', enterChat);
-            
-            nicknameInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    enterChat();
-                }
             });
-            
+
+            // Evento de envio de mensagem
             sendBtn.addEventListener('click', sendMessage);
-            
-            messageInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
+            messageInput.addEventListener('keypress', event => {
+                if (event.key === 'Enter') {
                     sendMessage();
                 }
             });
-            
-            messageInput.addEventListener('input', function() {
-                // Notifica que está digitando
-                if (!isTyping) {
-                    isTyping = true;
-                    notifyTyping(true);
+
+            // Função para enviar mensagem
+            function sendMessage() {
+                const messageContent = messageInput.value.trim();
+
+                if (!messageContent) {
+                    return;
                 }
-                
-                // Reseta o timeout
+
+                messageInput.value = '';
+
+                if (socket) {
+                    socket.send(JSON.stringify({
+                        type: 'message',
+                        content: messageContent,
+                        timestamp: new Date().toISOString(),
+                        replyTo: currentReply || null
+                    }));
+
+                    // Limpa resposta
+                    currentReply = null;
+                    updateReplyPreview();
+                }
+            }
+
+            // Evento de mudança de nickname
+            changeNickBtn.addEventListener('click', () => {
+                const newNickname = prompt('Digite seu novo nickname:', nickname);
+
+                if (newNickname && newNickname.trim() !== nickname) {
+                    nickname = newNickname.trim();
+                    currentNickname.textContent = nickname;
+
+                    if (socket) {
+                        socket.send(JSON.stringify({
+                            type: 'nickname_change',
+                            newNickname: nickname,
+                            timestamp: new Date().toISOString()
+                        }));
+                    }
+                }
+            });
+
+            // Evento de limpar chat
+            clearChatBtn.addEventListener('click', () => {
+                chatMessages.innerHTML = '<div class="empty-chat text-center text-gray-500 py-4 h-full flex flex-col items-center justify-center"><p>Nenhuma mensagem ainda. Seja o primeiro a enviar uma mensagem!</p></div>';
+            });
+
+            // Evento de mostrar/ocultar painel de usuários
+            usersToggleBtn.addEventListener('click', () => {
+                usersPanel.classList.toggle('hidden');
+            });
+
+            // Evento de digitação
+            messageInput.addEventListener('input', () => {
                 clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(function() {
-                    if (isTyping) {
+
+                if (socket && !isTyping) {
+                    socket.send(JSON.stringify({
+                        type: 'typing',
+                        sender: nickname,
+                        isTyping: true
+                    }));
+                    isTyping = true;
+                }
+
+                typingTimeout = setTimeout(() => {
+                    if (socket && isTyping) {
+                        socket.send(JSON.stringify({
+                            type: 'typing',
+                            sender: nickname,
+                            isTyping: false
+                        }));
                         isTyping = false;
-                        notifyTyping(false);
                     }
                 }, 2000);
             });
-            
-            clearChatBtn.addEventListener('click', clearChat);
-            
-            changeNickBtn.addEventListener('click', changeNickname);
-            
-            usersToggleBtn.addEventListener('click', function() {
-                usersPanel.classList.toggle('hidden');
-                usersToggleBtn.innerHTML = usersPanel.classList.contains('hidden') ? 
-                    '<i class="fas fa-users"></i>' : 
-                    '<i class="fas fa-times"></i>';
-                usersToggleBtn.title = usersPanel.classList.contains('hidden') ? 
-                    'Mostrar usuários' : 'Ocultar usuários';
+
+            // Evento de cancelar resposta
+            cancelReplyBtn.addEventListener('click', () => {
+                currentReply = null;
+                updateReplyPreview();
             });
-            
-            emojiBtn.addEventListener('click', toggleEmojiPicker);
-            
-            // Adiciona eventos para emojis
-            document.querySelectorAll('.emoji-option').forEach(emoji => {
-                emoji.addEventListener('click', function() {
-                    messageInput.value += this.textContent;
+
+            // Evento de escolher emoji
+            emojiBtn.addEventListener('click', () => {
+                emojiPicker.classList.toggle('hidden');
+            });
+
+            // Evento de selecionar emoji
+            emojiPicker.addEventListener('click', event => {
+                if (event.target.classList.contains('emoji-option')) {
+                    messageInput.value += event.target.textContent;
                     messageInput.focus();
                     emojiPicker.classList.add('hidden');
-                });
-            });
-            
-            cancelReplyBtn.addEventListener('click', cancelReply);
-            
-            // Fecha o chat quando a página é fechada
-            window.addEventListener('beforeunload', function() {
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.close();
                 }
             });
-            
-            // Mostra status da conexão
-            updateConnectionStatus('disconnected');
-            
-            // Fecha menus ao rolar
-            chatMessages.addEventListener('scroll', function() {
-                const existingMenu = document.querySelector('.message-options');
-                if (existingMenu) {
-                    existingMenu.remove();
+
+            // Evento de abrir menu de opções da mensagem
+            chatMessages.addEventListener('click', event => {
+                if (event.target.closest('.message-container')) {
+                    const messageContainer = event.target.closest('.message-container');
+                    const messageMenu = messageContainer.querySelector('.message-menu');
+
+                    if (messageMenuOpen && messageMenuOpen !== messageMenu) {
+                        messageMenuOpen.classList.remove('visible');
+                    }
+
+                    messageMenu.classList.toggle('visible');
+                    messageMenuOpen = messageMenu;
+                } else if (messageMenuOpen) {
+                    messageMenuOpen.classList.remove('visible');
                     messageMenuOpen = null;
                 }
-                
-                const existingPicker = document.querySelector('.reaction-picker');
-                if (existingPicker) {
-                    existingPicker.remove();
-                }
-                
-                emojiPicker.classList.add('hidden');
             });
         });
     </script>
