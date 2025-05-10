@@ -496,118 +496,135 @@
     </div>
 
     <script>
-        // Objeto global para simular o servidor
-        window.mockServer = {
-            partitions: {},
+        // Objeto global para simular o servidor - agora persistente entre sessões
+        window.mockServer = (function() {
+            // Usamos localStorage para persistir os dados entre diferentes abas/dispositivos
+            const storageKey = 'mockServerData';
             
-            addPartition: function(partitionName) {
-                if (!this.partitions[partitionName]) {
-                    this.partitions[partitionName] = {
-                        clients: [],
-                        messages: [],
-                        typingUsers: new Set()
-                    };
-                }
-            },
+            // Inicializa ou carrega os dados existentes
+            let partitions = JSON.parse(localStorage.getItem(storageKey)) || {};
             
-            broadcast: function(partitionName, message, excludeClient = null) {
-                this.partitions[partitionName]?.clients.forEach(client => {
-                    if (client !== excludeClient && client.onmessage) {
-                        client.onmessage({ data: JSON.stringify(message) });
+            // Função para salvar o estado atual
+            function saveState() {
+                localStorage.setItem(storageKey, JSON.stringify(partitions));
+            }
+            
+            return {
+                partitions: partitions,
+                
+                addPartition: function(partitionName) {
+                    if (!this.partitions[partitionName]) {
+                        this.partitions[partitionName] = {
+                            clients: [], // Note: clients não são persistidos
+                            messages: [],
+                            typingUsers: new Set()
+                        };
+                        saveState();
                     }
-                });
-            },
-            
-            addClient: function(partitionName, ws) {
-                if (!this.partitions[partitionName]) {
-                    this.addPartition(partitionName);
-                }
+                },
                 
-                this.partitions[partitionName].clients.push(ws);
-                
-                // Envia histórico de mensagens para o novo cliente
-                if (this.partitions[partitionName].messages.length > 0) {
-                    ws.onmessage({ 
-                        data: JSON.stringify({
-                            type: 'history',
-                            messages: this.partitions[partitionName].messages.slice(-50)
-                        })
+                broadcast: function(partitionName, message, excludeClient = null) {
+                    if (!this.partitions[partitionName]) return;
+                    
+                    this.partitions[partitionName].clients.forEach(client => {
+                        if (client !== excludeClient && client.onmessage) {
+                            client.onmessage({ data: JSON.stringify(message) });
+                        }
                     });
-                }
+                },
                 
-                // Notifica todos sobre o novo usuário
-                this.broadcast(partitionName, {
-                    type: 'user_join',
-                    nickname: ws.nickname,
-                    timestamp: new Date().toISOString()
-                });
-                
-                this.updateUserList(partitionName);
-            },
-            
-            removeClient: function(partitionName, ws) {
-                if (!this.partitions[partitionName]) return;
-                
-                this.partitions[partitionName].clients = this.partitions[partitionName].clients.filter(client => client !== ws);
-                
-                // Notifica todos sobre a saída do usuário
-                if (ws.nickname) {
+                addClient: function(partitionName, ws) {
+                    if (!this.partitions[partitionName]) {
+                        this.addPartition(partitionName);
+                    }
+                    
+                    this.partitions[partitionName].clients.push(ws);
+                    
+                    // Envia histórico de mensagens para o novo cliente
+                    if (this.partitions[partitionName].messages.length > 0) {
+                        ws.onmessage({ 
+                            data: JSON.stringify({
+                                type: 'history',
+                                messages: this.partitions[partitionName].messages.slice(-50)
+                            })
+                        });
+                    }
+                    
+                    // Notifica todos sobre o novo usuário
                     this.broadcast(partitionName, {
-                        type: 'user_leave',
+                        type: 'user_join',
                         nickname: ws.nickname,
                         timestamp: new Date().toISOString()
                     });
+                    
+                    this.updateUserList(partitionName);
+                },
+                
+                removeClient: function(partitionName, ws) {
+                    if (!this.partitions[partitionName]) return;
+                    
+                    this.partitions[partitionName].clients = this.partitions[partitionName].clients.filter(client => client !== ws);
+                    
+                    // Notifica todos sobre a saída do usuário
+                    if (ws.nickname) {
+                        this.broadcast(partitionName, {
+                            type: 'user_leave',
+                            nickname: ws.nickname,
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                    
+                    this.updateUserList(partitionName);
+                },
+                
+                updateUserList: function(partitionName) {
+                    if (!this.partitions[partitionName]) return;
+                    
+                    const userList = this.partitions[partitionName].clients
+                        .filter(client => client.nickname)
+                        .map(client => client.nickname);
+                    
+                    this.broadcast(partitionName, {
+                        type: 'user_list',
+                        users: userList
+                    });
+                },
+                
+                addMessage: function(partitionName, message) {
+                    if (!this.partitions[partitionName]) return null;
+                    
+                    const messageId = Date.now().toString();
+                    message.id = messageId;
+                    this.partitions[partitionName].messages.push(message);
+                    saveState();
+                    
+                    this.broadcast(partitionName, {
+                        type: 'message',
+                        id: messageId,
+                        sender: message.sender,
+                        content: message.content,
+                        timestamp: message.timestamp
+                    });
+                    
+                    return messageId;
+                },
+                
+                updateTyping: function(partitionName, nickname, isTyping) {
+                    if (!this.partitions[partitionName]) return;
+                    
+                    if (isTyping) {
+                        this.partitions[partitionName].typingUsers.add(nickname);
+                    } else {
+                        this.partitions[partitionName].typingUsers.delete(nickname);
+                    }
+                    
+                    this.broadcast(partitionName, {
+                        type: 'typing',
+                        users: Array.from(this.partitions[partitionName].typingUsers)
+                    });
                 }
-                
-                this.updateUserList(partitionName);
-            },
-            
-            updateUserList: function(partitionName) {
-                if (!this.partitions[partitionName]) return;
-                
-                const userList = this.partitions[partitionName].clients
-                    .filter(client => client.nickname)
-                    .map(client => client.nickname);
-                
-                this.broadcast(partitionName, {
-                    type: 'user_list',
-                    users: userList
-                });
-            },
-            
-            addMessage: function(partitionName, message) {
-                if (!this.partitions[partitionName]) return null;
-                
-                const messageId = Date.now().toString();
-                message.id = messageId;
-                this.partitions[partitionName].messages.push(message);
-                
-                this.broadcast(partitionName, {
-                    type: 'message',
-                    id: messageId,
-                    sender: message.sender,
-                    content: message.content,
-                    timestamp: message.timestamp
-                });
-                
-                return messageId;
-            },
-            
-            updateTyping: function(partitionName, nickname, isTyping) {
-                if (!this.partitions[partitionName]) return;
-                
-                if (isTyping) {
-                    this.partitions[partitionName].typingUsers.add(nickname);
-                } else {
-                    this.partitions[partitionName].typingUsers.delete(nickname);
-                }
-                
-                this.broadcast(partitionName, {
-                    type: 'typing',
-                    users: Array.from(this.partitions[partitionName].typingUsers)
-                });
-            }
-        };
+            };
+        })();
 
         document.addEventListener('DOMContentLoaded', function() {
             // Elementos do DOM
